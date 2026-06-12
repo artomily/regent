@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand palette — see brand.md at the repo root. Warm near-black + brass. */
+  --color-ink: #0f0d0a;
+  --color-surface: #16130e;
+  --color-raised: #1e1a13;
+  --color-overlay: #27221a;
+  --color-edge: rgb(236 230 217 / 0.08);
+  --color-edge-strong: rgb(236 230 217 / 0.18);
+  --color-cream: #ece6d9;
+  --color-fog: #a89e8a;
+  --color-dim: #7a7263;
+  --color-brass: #c9a35e;
+  --color-brass-bright: #e2c280;
+  --color-brass-faint: rgb(201 163 94 / 0.12);
+  --color-positive: #7ed09a;
+  --color-negative: #e07a7a;
+  --color-info: #8db8e8;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --font-display: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+
+  --animate-rise: rise 0.7s cubic-bezier(0.21, 0.55, 0.27, 1) both;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-cream);
+}
+
+::selection {
+  background: rgb(201 163 94 / 0.3);
+}
+
+/* Numbers line up everywhere by default. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-overlay);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-brass);
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-pulse-soft {
+    animation: none;
+  }
+}

@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Regent
 
-## Getting Started
+> You give the mandate. Regent executes.
 
-First, run the development server:
+An AI agent that acts on your behalf inside hard, signed boundaries — budget, slippage, expiry. Never beyond. Built on **MetaMask Smart Accounts** (delegation), **Venice AI** (intelligence), and the **1Shot relayer** (gas abstraction) on **Base Sepolia**.
+
+## Quick start
 
 ```bash
+npm install
+
+# terminal 1 — the AI agent service (:4801)
+npm run agent
+
+# terminal 2 — the web app (:3000)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). **No keys or testnet funds needed** — demo mode simulates anything that isn't configured, and labels it honestly in the UI.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The full flow: give a mandate → review the clauses → authorize (real EIP-712 signature if MetaMask is connected) → activate Regent → watch it scan routes, reason, and execute within your boundaries — or refuse when a boundary would break.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure
 
-## Learn More
+```
+frontend/    Next.js 16 app — landing, dashboard, mandate flow, /api/agent proxy
+ai-agent/    Agent service — Venice AI evaluation + 1Shot execution (Node 24, zero deps)
+contract/    Foundry — RegentMandate.sol: on-chain budget/slippage/expiry guard (11 tests)
+```
 
-To learn more about Next.js, take a look at the following resources:
+How they connect, and why every boundary is enforced three times: see [ARCHITECTURE.md](ARCHITECTURE.md). Roadmap: [TASKS.md](TASKS.md). Design system: [brand.md](brand.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Going live
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Step | How |
+|---|---|
+| Venice AI decisions | `ai-agent/.env`: `VENICE_API_KEY=...` |
+| Deploy the contract | `cd contract && PRIVATE_KEY=0x... ./script/deploy.sh` |
+| On-chain mandates | `frontend/.env.local`: `NEXT_PUBLIC_MANDATE_CONTRACT=0x...` |
+| 1Shot execution | `ai-agent/.env`: `EXECUTION_MODE=live`, `MANDATE_CONTRACT=0x...` |
 
-## Deploy on Vercel
+```bash
+npm run contract:test    # forge test — the mandate guard suite
+npm run build            # production frontend build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Hackathon tracks
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Best Agent** — Regent *is* the agent: bounded delegation with an auditable decision trail
+- **Best Use of Venice AI** — route evaluation and the decision engine (`ai-agent/src/venice.ts`)
+- **Best Use of 1Shot Permissionless Relayer** — gas-abstracted delegated execution (`ai-agent/src/executor.ts`)

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "frontend", "--", "-p", "3100"],
+      "port": 3100
+    },
+    {
+      "name": "ai-agent",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "agent"],
+      "port": 4801
+    }
+  ]
+}
