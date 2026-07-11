@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { simulateDecision, simulateQuotes } from "@/lib/simulator"
 import type { Mandate } from "@/lib/types"
 
-const AGENT_URL = process.env.AGENT_URL ?? "http://localhost:4801"
+const AGENT_URL = process.env.AGENT_URL ?? "http://43.133.146.186:8000"
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { mandate?: Mandate; veniceApiKey?: string } | null
