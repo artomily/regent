@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title,
   description,
+  icons: {
+    icon: "/regent-logo.png",
+    apple: "/regent-logo.png",
+  },
   keywords: [
     "AI agent",
     "DeFi",
