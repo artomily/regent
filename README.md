@@ -245,3 +245,13 @@ Areas particularly worth feedback on:
 Follow the build on X: **[@arakaalts](https://x.com/arakaalts)**
 
 > You give the mandate. Regent executes. — an AI agent that acts inside hard, signed boundaries. No custody. No key exposure. Built on MetaMask Smart Accounts + Venice AI + 1Shot on Base Sepolia.
+
+---
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and PR expectations. Please review [SECURITY.md](SECURITY.md) before reporting anything that looks like a mandate-boundary bypass.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

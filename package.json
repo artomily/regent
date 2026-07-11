@@ -2,6 +2,15 @@
   "name": "regent",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/artomily/regent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/artomily/regent/issues"
+  },
+  "homepage": "https://github.com/artomily/regent#readme",
   "workspaces": [
     "frontend",
     "ai-agent"
