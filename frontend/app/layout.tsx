@@ -19,10 +19,37 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
 })
 
+const siteUrl = "https://regentai.vercel.app"
+const title = "Regent — You give the mandate. Regent executes."
+const description =
+  "An AI agent that acts on your behalf inside hard, signed boundaries — budget, slippage, expiry. Built on MetaMask Smart Accounts, Venice AI, and the 1Shot relayer on Base."
+
 export const metadata: Metadata = {
-  title: "Regent — You give the mandate. Regent executes.",
-  description:
-    "An AI agent that acts on your behalf inside hard, signed boundaries — budget, slippage, expiry. Built on MetaMask Smart Accounts, Venice AI, and the 1Shot relayer on Base.",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  keywords: [
+    "AI agent",
+    "DeFi",
+    "mandate",
+    "MetaMask Smart Accounts",
+    "Venice AI",
+    "1Shot relayer",
+    "Base Sepolia",
+    "non-custodial",
+  ],
+  openGraph: {
+    title,
+    description,
+    url: siteUrl,
+    siteName: "Regent",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 }
 
 export default function RootLayout({

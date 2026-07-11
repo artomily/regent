@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Ban, Clock, Gauge } from "lucide-react"
+import { ArrowLeft, Ban, Clock, Gauge, Info } from "lucide-react"
 import Link from "next/link"
 import { CreateMandateForm } from "@/components/create-mandate-form"
 import { SiteFooter } from "@/components/site-footer"
@@ -58,6 +58,19 @@ export default function MandatePage() {
           </div>
 
           <aside className="space-y-5 lg:col-span-2" aria-label="How mandates work">
+            <section className="rounded-2xl border border-edge bg-raised p-6">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-cream">
+                <Info className="h-3.5 w-3.5 text-brass" aria-hidden="true" /> New here? A mandate in one
+                sentence
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-fog">
+                A mandate is a signed permission slip with an expiry date: it tells Regent exactly what
+                it's allowed to do — spend up to this much, accept at most this much slippage, stop by this
+                time — and nothing else. Your wallet, your keys, and your money never leave your control;
+                Regent only ever gets the narrow instructions you sign.
+              </p>
+            </section>
+
             <section className="rounded-2xl border border-edge bg-surface p-6">
               <h2 className="text-sm font-semibold text-cream">What Regent can never do</h2>
               <ul className="mt-4 space-y-4">
@@ -100,6 +113,13 @@ export default function MandatePage() {
                   No wallet connected — the flow runs in demo mode with a simulated signature.
                 </p>
               )}
+              <p className="mt-4 text-xs leading-relaxed text-dim">
+                Regent is experimental, non-custodial software.{" "}
+                <Link href="/legal" className="underline decoration-edge-strong underline-offset-4 hover:text-fog">
+                  Read the risk disclosure
+                </Link>{" "}
+                before signing.
+              </p>
             </section>
           </aside>
         </div>

@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Brandmark } from "./site-header"
 
 export function SiteFooter() {
@@ -8,7 +9,15 @@ export function SiteFooter() {
         <p className="text-sm text-fog">
           MetaMask Smart Accounts · Venice AI · 1Shot Relayer · Base Sepolia
         </p>
-        <p className="font-mono text-xs text-dim">frontend/ · ai-agent/ · contract/</p>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/legal"
+            className="rounded text-xs text-dim underline decoration-edge-strong underline-offset-4 transition-colors hover:text-fog focus-visible:outline-2 focus-visible:outline-brass"
+          >
+            Legal & risk disclosure
+          </Link>
+          <p className="font-mono text-xs text-dim">frontend/ · ai-agent/ · contract/</p>
+        </div>
       </div>
     </footer>
   )
