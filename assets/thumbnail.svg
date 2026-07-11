@@ -1,0 +1,30 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Regent — you give the mandate, Regent executes</title>
+<desc>Dark warm-ink banner with a brass signet seal, the Regent wordmark in serif type, the tagline "You give the mandate. Regent executes." and the tech stack footer: Base Sepolia, Venice AI, 1Shot Relayer, MetaMask Smart Accounts.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap');</style>
+<rect x="0" y="0" width="1200" height="630" fill="#0f0d0a"/>
+<rect x="48" y="48" width="1104" height="534" rx="6" fill="none" stroke="rgb(236 230 217 / 0.18)" stroke-width="1"/>
+<text x="88" y="104" text-anchor="start" font-family="Arial, sans-serif" font-size="13" letter-spacing="3" fill="#7a7263">MANDATE-BOUNDED AI AGENT</text>
+<text x="1112" y="104" text-anchor="end" font-family="Arial, sans-serif" font-size="13" letter-spacing="3" fill="#7a7263">THE MANDATE IS LAW</text>
+<g stroke="#c9a35e" stroke-width="1.2">
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(0 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(30 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(60 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(90 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(120 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(150 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(180 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(210 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(240 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(270 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(300 600 195)"/>
+<line x1="600" y1="123" x2="600" y2="135" transform="rotate(330 600 195)"/>
+</g>
+<circle cx="600" cy="195" r="54" fill="none" stroke="#c9a35e" stroke-width="1.5"/>
+<rect x="582" y="177" width="36" height="36" fill="none" stroke="#c9a35e" stroke-width="1.5" transform="rotate(45 600 195)"/>
+<circle cx="600" cy="195" r="3" fill="#c9a35e"/>
+<text x="600" y="410" text-anchor="middle" font-family="'Instrument Serif', Georgia, serif" font-size="128" fill="#c9a35e">Regent</text>
+<text x="600" y="470" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" letter-spacing="3" fill="#a89e8a">YOU GIVE THE MANDATE. REGENT EXECUTES.</text>
+<line x1="550" y1="505" x2="650" y2="505" stroke="#c9a35e" stroke-width="1" opacity="0.5"/>
+<text x="600" y="545" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#7a7263">BASE SEPOLIA · VENICE AI · 1SHOT RELAYER · METAMASK SMART ACCOUNTS</text>
+</svg>
