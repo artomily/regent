@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { LIVE_EXECUTION, PORT, VENICE_API_KEY } from "./config.ts"
 import { executeRoute } from "./executor.ts"
 import { fetchQuotes } from "./quotes.ts"
+import { checkRateLimit } from "./rate-limit.ts"
 import { evaluateRoutes } from "./venice.ts"
 import type { Mandate, Route } from "./types.ts"
 
@@ -15,6 +16,20 @@ const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") return res.writeHead(204).end()
 
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`)
+  const clientId = clientIdFor(req)
+  const rateLimit = checkRateLimit(clientId, url.pathname)
+  if (!rateLimit.allowed) {
+    res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds))
+    res.setHeader("X-RateLimit-Limit", String(rateLimit.limit))
+    res.setHeader("X-RateLimit-Remaining", "0")
+    return json(res, 429, {
+      error: `Rate limit exceeded for ${url.pathname}. Retry after ${rateLimit.retryAfterSeconds}s.`,
+    })
+  }
+  if (Number.isFinite(rateLimit.limit)) {
+    res.setHeader("X-RateLimit-Limit", String(rateLimit.limit))
+    res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining))
+  }
 
   try {
     if (req.method === "GET" && url.pathname === "/health") {
@@ -56,6 +71,12 @@ const server = createServer(async (req, res) => {
     return json(res, 500, { error: error instanceof Error ? error.message : "Internal error" })
   }
 })
+
+function clientIdFor(req: IncomingMessage): string {
+  const forwarded = req.headers["x-forwarded-for"]
+  if (typeof forwarded === "string" && forwarded.length > 0) return forwarded.split(",")[0].trim()
+  return req.socket.remoteAddress ?? "unknown"
+}
 
 function json(res: ServerResponse, status: number, payload: unknown) {
   res.writeHead(status, { "Content-Type": "application/json" })

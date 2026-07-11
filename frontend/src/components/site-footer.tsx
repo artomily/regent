@@ -9,7 +9,7 @@ export function SiteFooter() {
         <p className="text-sm text-fog">
           MetaMask Smart Accounts · Venice AI · 1Shot Relayer · Base Sepolia
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
           <Link
             href="/legal"
             className="rounded text-xs text-dim underline decoration-edge-strong underline-offset-4 transition-colors hover:text-fog focus-visible:outline-2 focus-visible:outline-brass"

@@ -40,10 +40,11 @@ export function WalletConnect({ address, onConnect }: WalletConnectProps) {
       <button
         onClick={connect}
         disabled={busy}
-        className="inline-flex h-10 items-center gap-2 rounded-full border border-edge-strong px-4 text-xs font-semibold text-cream transition-colors hover:border-brass hover:text-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-edge-strong px-4 text-xs font-semibold whitespace-nowrap text-cream transition-colors hover:border-brass hover:text-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
       >
         <Wallet className="h-3.5 w-3.5" aria-hidden="true" />
-        {busy ? "Connecting…" : "Connect wallet"}
+        <span className="sm:hidden">{busy ? "Connecting…" : "Connect"}</span>
+        <span className="hidden sm:inline">{busy ? "Connecting…" : "Connect wallet"}</span>
       </button>
       {error && (
         <p role="alert" className="absolute top-full right-0 mt-2 w-64 rounded-lg border border-edge bg-raised p-3 text-xs text-negative">

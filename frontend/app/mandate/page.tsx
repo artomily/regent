@@ -65,8 +65,8 @@ export default function MandatePage() {
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-fog">
                 A mandate is a signed permission slip with an expiry date: it tells Regent exactly what
-                it's allowed to do — spend up to this much, accept at most this much slippage, stop by this
-                time — and nothing else. Your wallet, your keys, and your money never leave your control;
+                it&apos;s allowed to do — spend up to this much, accept at most this much slippage, stop by
+                this time — and nothing else. Your wallet, your keys, and your money never leave your control;
                 Regent only ever gets the narrow instructions you sign.
               </p>
             </section>

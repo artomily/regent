@@ -1,4 +1,5 @@
 import { AGENT_SYSTEM_PROMPT, VENICE_API_KEY, VENICE_API_URL, VENICE_MODEL } from "./config.ts"
+import { logger } from "./logger.ts"
 import type { AgentDecision, Mandate, Route } from "./types.ts"
 
 /**
@@ -43,6 +44,11 @@ export async function evaluateRoutes(mandate: Mandate, routes: Route[]): Promise
     // The model proposes; the mandate disposes. Re-check its pick against the
     // hard boundaries so a hallucinated verdict can never authorize a spend.
     if (selected && (selected.inputAmount > mandate.budget || selected.slippage > mandate.maxSlippage)) {
+      logger.warn("venice.verdict.rejected", {
+        mandateId: mandate.id,
+        dex: selected.dex,
+        reason: selected.inputAmount > mandate.budget ? "budget" : "slippage",
+      })
       return heuristicDecision(mandate, routes)
     }
 
@@ -54,7 +60,11 @@ export async function evaluateRoutes(mandate: Mandate, routes: Route[]): Promise
       allRoutes: routes,
       source: "venice",
     }
-  } catch {
+  } catch (error) {
+    logger.error("venice.evaluate.failed", {
+      mandateId: mandate.id,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return heuristicDecision(mandate, routes)
   }
 }

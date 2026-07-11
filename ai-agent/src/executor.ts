@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { BASE_SEPOLIA_CHAIN_ID, LIVE_EXECUTION, MANDATE_CONTRACT, ONE_SHOT_RELAYER_URL } from "./config.ts"
+import { logger } from "./logger.ts"
 import type { ExecutionResult, Mandate, Route } from "./types.ts"
 
 /**
@@ -12,12 +13,15 @@ export async function executeRoute(mandate: Mandate, route: Route): Promise<Exec
   // Final guard before any value moves — the mandate is law even if a caller
   // bypasses /evaluate and posts a route directly.
   if (route.inputAmount > mandate.budget) {
+    logger.info("executor.boundary.refused", { mandateId: mandate.id, dex: route.dex, reason: "budget" })
     return failure("Refused: spend would exceed the mandate budget")
   }
   if (route.slippage > mandate.maxSlippage) {
+    logger.info("executor.boundary.refused", { mandateId: mandate.id, dex: route.dex, reason: "slippage" })
     return failure("Refused: slippage exceeds the mandate ceiling")
   }
   if (mandate.expiry && new Date(mandate.expiry).getTime() <= Date.now()) {
+    logger.info("executor.boundary.refused", { mandateId: mandate.id, dex: route.dex, reason: "expiry" })
     return failure("Refused: mandate has expired")
   }
 
@@ -64,6 +68,11 @@ export async function executeRoute(mandate: Mandate, route: Route): Promise<Exec
       source: "relayer",
     }
   } catch (error) {
+    logger.error("executor.relayer.failed", {
+      mandateId: mandate.id,
+      dex: route.dex,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return failure(error instanceof Error ? error.message : "Unknown relayer error")
   }
 }

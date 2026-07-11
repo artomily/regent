@@ -1,6 +1,6 @@
 "use client"
 
-import { Crown } from "lucide-react"
+import { Crown, LayoutDashboard, ScrollText } from "lucide-react"
 import Link from "next/link"
 import type { Hex } from "viem"
 import { AgentStatus } from "./agent-status"
@@ -35,18 +35,22 @@ export function AppHeader({ walletAddress, onConnect, health }: AppHeaderProps) 
           >
             <Brandmark />
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex" aria-label="Application">
+          <nav className="flex items-center gap-1" aria-label="Application">
             <Link
               href="/dashboard"
-              className="rounded-full px-3 py-2 text-sm text-fog transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-brass"
+              aria-label="Dashboard"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-fog transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-brass sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-sm"
             >
-              Dashboard
+              <LayoutDashboard className="h-4 w-4 sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">Dashboard</span>
             </Link>
             <Link
               href="/mandate"
-              className="rounded-full px-3 py-2 text-sm text-fog transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-brass"
+              aria-label="New mandate"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-fog transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-brass sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-sm"
             >
-              New mandate
+              <ScrollText className="h-4 w-4 sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">New mandate</span>
             </Link>
           </nav>
         </div>
