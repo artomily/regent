@@ -146,7 +146,7 @@ export default function Landing() {
                 </Link>
               </div>
               <p className="animate-rise mt-10 font-mono text-xs text-dim [animation-delay:320ms]">
-                ERC-7710 delegation · EIP-7702 gas abstraction · demo mode needs no keys
+                ERC-7710 delegation · EIP-7702 gas abstraction · works with zero configuration
               </p>
             </div>
           </div>
