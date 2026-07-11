@@ -1,5 +1,5 @@
 import { createWalletClient, custom, type Hex } from "viem"
-import { baseSepolia } from "viem/chains"
+import { base } from "viem/chains"
 import { MANDATE_CONTRACT } from "./constants"
 import type { Mandate } from "./types"
 
@@ -9,7 +9,7 @@ export function hasInjectedWallet(): boolean {
 
 function walletClient() {
   if (!window.ethereum) throw new Error("No injected wallet found")
-  return createWalletClient({ chain: baseSepolia, transport: custom(window.ethereum) })
+  return createWalletClient({ chain: base, transport: custom(window.ethereum) })
 }
 
 export async function connectWallet(): Promise<Hex | null> {
@@ -18,15 +18,15 @@ export async function connectWallet(): Promise<Hex | null> {
   return address ?? null
 }
 
-export async function ensureBaseSepolia(): Promise<void> {
+export async function ensureBaseMainnet(): Promise<void> {
   if (!hasInjectedWallet()) return
   const client = walletClient()
   try {
-    await client.switchChain({ id: baseSepolia.id })
+    await client.switchChain({ id: base.id })
   } catch {
     // Chain unknown to the wallet — register it, then switch.
-    await client.addChain({ chain: baseSepolia })
-    await client.switchChain({ id: baseSepolia.id })
+    await client.addChain({ chain: base })
+    await client.switchChain({ id: base.id })
   }
 }
 
@@ -41,7 +41,7 @@ export async function signMandateAuthorization(mandate: Mandate, account: Hex): 
     domain: {
       name: "RegentMandate",
       version: "1",
-      chainId: baseSepolia.id,
+      chainId: base.id,
       ...(MANDATE_CONTRACT ? { verifyingContract: MANDATE_CONTRACT as Hex } : {}),
     },
     types: {

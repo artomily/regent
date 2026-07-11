@@ -3,7 +3,7 @@ import { LIVE_EXECUTION, PORT, VENICE_API_KEY } from "./config.ts"
 import { executeRoute } from "./executor.ts"
 import { fetchQuotes } from "./quotes.ts"
 import { checkRateLimit } from "./rate-limit.ts"
-import { evaluateRoutes } from "./venice.ts"
+import { evaluateRoutes, VeniceKeyRequiredError } from "./venice.ts"
 import type { Mandate, Route } from "./types.ts"
 
 const startedAt = Date.now()
@@ -12,7 +12,7 @@ const server = createServer(async (req, res) => {
   // The Next.js frontend proxies server-side, but allow direct browser calls too.
   res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Venice-Api-Key")
   if (req.method === "OPTIONS") return res.writeHead(204).end()
 
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`)
@@ -46,16 +46,24 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/quotes") {
       const mandate = mandateFromQuery(url)
-      return json(res, 200, { routes: fetchQuotes(mandate) })
+      return json(res, 200, { routes: await fetchQuotes(mandate) })
     }
 
     if (req.method === "POST" && url.pathname === "/evaluate") {
       const body = await readJson<{ mandate: Mandate }>(req)
       const mandate = validateMandate(body?.mandate)
       if (!mandate) return json(res, 400, { error: "Invalid mandate payload" })
-      const routes = fetchQuotes(mandate)
-      const decision = await evaluateRoutes(mandate, routes)
-      return json(res, 200, { decision })
+      const routes = await fetchQuotes(mandate)
+      // A caller-supplied key lets a deployment with no VENICE_API_KEY of its
+      // own still run live — never logged, used only for this one call.
+      const apiKey = req.headers["x-venice-api-key"]
+      try {
+        const decision = await evaluateRoutes(mandate, routes, typeof apiKey === "string" ? apiKey : undefined)
+        return json(res, 200, { decision })
+      } catch (error) {
+        if (error instanceof VeniceKeyRequiredError) return json(res, 400, { error: error.message })
+        throw error
+      }
     }
 
     if (req.method === "POST" && url.pathname === "/execute") {

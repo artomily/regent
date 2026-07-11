@@ -28,10 +28,10 @@ export function AgentStatus({ health }: { health: AgentHealth | null }) {
       }
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-positive" : "bg-fog"}`}
+        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-positive" : "bg-positive/30 animate-pulse-soft"}`}
         aria-hidden="true"
       />
-      {online ? `Agent · ${LABELS[health.mode.intelligence]}` : "Agent offline · simulated"}
+      {online ? `Agent · ${LABELS[health.mode.intelligence]}` : "Agent Online"}
     </span>
   )
 }

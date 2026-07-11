@@ -1,6 +1,6 @@
 "use client"
 
-import { Crown, Play, RotateCcw } from "lucide-react"
+import { Crown, Play, RotateCcw, Send } from "lucide-react"
 import Link from "next/link"
 import { ActivityFeed } from "@/components/activity-feed"
 import { ExecutionResultPanel } from "@/components/execution-result"
@@ -31,7 +31,8 @@ export default function Dashboard() {
     isAgentRunning,
     agentHealth,
     connect,
-    runAgent,
+    evaluateAgent,
+    executeAgent,
     revokeMandate,
     resetAgent,
     viewMandate,
@@ -93,12 +94,22 @@ export default function Dashboard() {
               <div className="flex gap-2">
                 {activeMandate.status === "authorized" && (
                   <button
-                    onClick={() => runAgent(activeMandate.id)}
+                    onClick={() => evaluateAgent(activeMandate.id)}
                     disabled={isAgentRunning}
                     className="inline-flex h-11 items-center gap-2 rounded-full bg-brass px-6 text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
                   >
                     <Play className="h-4 w-4" aria-hidden="true" />
                     {isAgentRunning ? "Regent is working…" : "Activate Regent"}
+                  </button>
+                )}
+                {activeMandate.status === "active" && decision?.selectedRoute && !executionResult && (
+                  <button
+                    onClick={() => executeAgent(activeMandate.id)}
+                    disabled={isAgentRunning}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-brass px-6 text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
+                  >
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    {isAgentRunning ? "Executing…" : `Execute on ${decision.selectedRoute.dex}`}
                   </button>
                 )}
                 {["completed", "rejected", "revoked"].includes(activeMandate.status) && (

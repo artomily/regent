@@ -2,19 +2,32 @@ import { AGENT_SYSTEM_PROMPT, VENICE_API_KEY, VENICE_API_URL, VENICE_MODEL } fro
 import { logger } from "./logger.ts"
 import type { AgentDecision, Mandate, Route } from "./types.ts"
 
+/** Thrown when no Venice key is available at all — the caller must supply one, there is no silent fallback for this case. */
+export class VeniceKeyRequiredError extends Error {
+  constructor() {
+    super("Venice API key required. Paste your key on the mandate page, or set VENICE_API_KEY on the agent.")
+    this.name = "VeniceKeyRequiredError"
+  }
+}
+
 /**
- * Decide which route (if any) to execute. Uses Venice AI when a key is
- * configured; otherwise falls back to the same deterministic policy the
- * model is instructed to follow, so demo mode behaves identically.
+ * Decide which route (if any) to execute. Requires a Venice key — either the
+ * service's own VENICE_API_KEY, or a per-request key the caller supplies —
+ * and throws VeniceKeyRequiredError if neither is present; the agent must
+ * use the real model, it never silently swaps in the heuristic for a
+ * missing key. Once a key is present, a failed/hallucinated Venice call
+ * still falls back to the heuristic — that's a resilience safety net, not
+ * a way to run without the model.
  */
-export async function evaluateRoutes(mandate: Mandate, routes: Route[]): Promise<AgentDecision> {
-  if (!VENICE_API_KEY) return heuristicDecision(mandate, routes)
+export async function evaluateRoutes(mandate: Mandate, routes: Route[], apiKey?: string): Promise<AgentDecision> {
+  const key = apiKey || VENICE_API_KEY
+  if (!key) throw new VeniceKeyRequiredError()
 
   try {
     const response = await fetch(`${VENICE_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${VENICE_API_KEY}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(20_000),

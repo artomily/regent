@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { heuristicDecision } from "./venice.ts"
+import { evaluateRoutes, heuristicDecision, VeniceKeyRequiredError } from "./venice.ts"
 import type { Mandate, Route } from "./types.ts"
 
 const mandate: Mandate = {
@@ -57,4 +57,9 @@ test("heuristicDecision declines when no route satisfies the mandate", () => {
   assert.equal(decision.withinBudget, false)
   assert.equal(decision.withinSlippage, false)
   assert.match(decision.reasoning, /Declining to execute/)
+})
+
+test("evaluateRoutes requires a Venice key — no silent heuristic fallback for a missing key", async () => {
+  // No VENICE_API_KEY in this process's env and no apiKey argument supplied.
+  await assert.rejects(() => evaluateRoutes(mandate, [route({})]), VeniceKeyRequiredError)
 })

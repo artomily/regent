@@ -3,6 +3,7 @@
 // simulator — callers never need to know which one answered.
 
 import type { AgentDecision, AgentHealth, ExecutionResult, Mandate, Route } from "./types"
+import { getVeniceApiKey } from "./venice-key"
 
 export async function fetchAgentHealth(): Promise<AgentHealth> {
   try {
@@ -14,13 +15,14 @@ export async function fetchAgentHealth(): Promise<AgentHealth> {
 }
 
 export async function requestEvaluation(mandate: Mandate): Promise<AgentDecision> {
+  const veniceApiKey = getVeniceApiKey()
   const res = await fetch("/api/agent/evaluate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mandate }),
+    body: JSON.stringify({ mandate, ...(veniceApiKey ? { veniceApiKey } : {}) }),
   })
-  if (!res.ok) throw new Error(`Evaluation failed (${res.status})`)
-  const data = (await res.json()) as { decision: AgentDecision }
+  const data = (await res.json().catch(() => ({}))) as { decision?: AgentDecision; error?: string }
+  if (!res.ok || !data.decision) throw new Error(data.error ?? `Evaluation failed (${res.status})`)
   return data.decision
 }
 

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { CreateMandateForm } from "@/components/create-mandate-form"
 import { SiteFooter } from "@/components/site-footer"
 import { AppHeader } from "@/components/site-header"
+import { VeniceKeyCard } from "@/components/venice-key-card"
 import { useRegent } from "@/hooks/use-regent"
 
 const NEVER = [
@@ -58,6 +59,8 @@ export default function MandatePage() {
           </div>
 
           <aside className="space-y-5 lg:col-span-2" aria-label="How mandates work">
+            <VeniceKeyCard />
+
             <section className="rounded-2xl border border-edge bg-raised p-6">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-cream">
                 <Info className="h-3.5 w-3.5 text-brass" aria-hidden="true" /> New here? A mandate in one
@@ -88,7 +91,7 @@ export default function MandatePage() {
               </ul>
               <p className="mt-5 border-t border-edge pt-4 text-xs leading-relaxed text-fog">
                 Boundaries are enforced three times: in this interface, in the agent service, and by the{" "}
-                <span className="font-mono text-cream">RegentMandate</span> contract on Base Sepolia.
+                <span className="font-mono text-cream">RegentMandate</span> contract on Base.
               </p>
             </section>
 

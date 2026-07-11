@@ -17,7 +17,7 @@ import {
   validateMandate,
 } from "@/lib/mandate-engine"
 import type { AgentDecision, AgentHealth, ActivityEvent, ExecutionResult, Mandate } from "@/lib/types"
-import { connectWallet, ensureBaseSepolia, hasInjectedWallet, signMandateAuthorization } from "@/lib/wallet"
+import { connectWallet, ensureBaseMainnet, hasInjectedWallet, signMandateAuthorization } from "@/lib/wallet"
 
 const ACTIVE_KEY = "regent_active_view"
 const DECISION_KEY = "regent_last_decision"
@@ -98,7 +98,7 @@ export function useRegent() {
     }
     const address = await connectWallet()
     if (!address) return null
-    await ensureBaseSepolia().catch(() => {
+    await ensureBaseMainnet().catch(() => {
       // Wrong network is tolerable in demo mode; surfaced via the header pill.
     })
     setWalletAddress(address)
@@ -147,7 +147,7 @@ export function useRegent() {
 
         if (isOnChainEnabled()) {
           const txHash = await registerMandateOnChain(mandate, walletAddress)
-          addActivity(mandateId, "permission_granted", "Mandate registered on RegentMandate (Base Sepolia).", {
+          addActivity(mandateId, "permission_granted", "Mandate registered on RegentMandate (Base).", {
             transactionHash: txHash,
           })
         }
@@ -167,7 +167,10 @@ export function useRegent() {
     [refresh, walletAddress],
   )
 
-  const runAgent = useCallback(
+  // Step 1 of 2: scan routes and get a decision. Stops there — execution is
+  // a separate, explicit step (executeAgent) so nothing spends without a
+  // second confirmation once the agent has picked a route.
+  const evaluateAgent = useCallback(
     async (mandateId: string) => {
       const mandate = getMandate(mandateId)
       if (!mandate || isAgentRunning) return
@@ -175,6 +178,7 @@ export function useRegent() {
       setIsAgentRunning(true)
       setExecutionResult(null)
       setDecision(null)
+      localStorage.removeItem(RESULT_KEY)
 
       try {
         updateMandateStatus(mandateId, "active")
@@ -204,20 +208,43 @@ export function useRegent() {
         addActivity(
           mandateId,
           "making_decision",
-          `Route selected — ${verdict.selectedRoute.dex}: ${verdict.selectedRoute.inputAmount} ${mandate.sourceAsset} → ${verdict.selectedRoute.outputAmount} ${mandate.targetAsset}.`,
+          `Route selected — ${verdict.selectedRoute.dex}: ${verdict.selectedRoute.inputAmount} ${mandate.sourceAsset} → ${verdict.selectedRoute.outputAmount} ${mandate.targetAsset}. Awaiting execution.`,
           { source: verdict.source },
         )
         refresh(mandateId)
-        await wait(500)
+      } catch (error) {
+        addActivity(
+          mandateId,
+          "making_decision",
+          error instanceof Error ? error.message : "Evaluation failed.",
+        )
+        updateMandateStatus(mandateId, "rejected")
+        refresh(mandateId)
+      } finally {
+        setIsAgentRunning(false)
+      }
+    },
+    [isAgentRunning, refresh],
+  )
 
-        // The mandate is law: re-check boundaries client-side before execution.
-        if (!checkBudget(mandate, verdict.selectedRoute.inputAmount)) {
+  // Step 2 of 2: the user has seen the chosen route and explicitly confirms.
+  // Boundaries are re-checked here too — the mandate is law regardless of
+  // what was decided a moment ago.
+  const executeAgent = useCallback(
+    async (mandateId: string) => {
+      const mandate = getMandate(mandateId)
+      if (!mandate || !decision?.selectedRoute || isAgentRunning) return
+      const route = decision.selectedRoute
+
+      setIsAgentRunning(true)
+      try {
+        if (!checkBudget(mandate, route.inputAmount)) {
           addActivity(mandateId, "making_decision", "Rejected: the spend would exceed the remaining budget.")
           updateMandateStatus(mandateId, "rejected")
           refresh(mandateId)
           return
         }
-        if (!checkSlippage(mandate, verdict.selectedRoute.slippage)) {
+        if (!checkSlippage(mandate, route.slippage)) {
           addActivity(mandateId, "making_decision", "Rejected: slippage exceeds the mandate ceiling.")
           updateMandateStatus(mandateId, "rejected")
           refresh(mandateId)
@@ -225,10 +252,10 @@ export function useRegent() {
         }
 
         updateMandateStatus(mandateId, "executing")
-        addActivity(mandateId, "executing_swap", `Executing on ${verdict.selectedRoute.dex} via 1Shot relayer…`)
+        addActivity(mandateId, "executing_swap", `Executing on ${route.dex} via 1Shot relayer…`)
         refresh(mandateId)
 
-        const result = await requestExecution(mandate, verdict.selectedRoute)
+        const result = await requestExecution(mandate, route)
         setExecutionResult(result)
         localStorage.setItem(RESULT_KEY, JSON.stringify({ mandateId, result }))
 
@@ -250,7 +277,7 @@ export function useRegent() {
         setIsAgentRunning(false)
       }
     },
-    [isAgentRunning, refresh],
+    [decision, isAgentRunning, refresh],
   )
 
   const revoke = useCallback(
@@ -300,7 +327,8 @@ export function useRegent() {
     connect,
     createMandate: create,
     authorizeMandate: authorize,
-    runAgent,
+    evaluateAgent,
+    executeAgent,
     revokeMandate: revoke,
     resetAgent: reset,
     viewMandate,

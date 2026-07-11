@@ -4,7 +4,7 @@
 // mode (NEXT_PUBLIC_MANDATE_CONTRACT unset).
 
 import { createPublicClient, createWalletClient, custom, http, type Abi, type Hex } from "viem"
-import { baseSepolia } from "viem/chains"
+import { base } from "viem/chains"
 import artifact from "../../../contract/abi/RegentMandate.json"
 import { MANDATE_CONTRACT } from "./constants"
 import type { Mandate } from "./types"
@@ -15,7 +15,7 @@ export function isOnChainEnabled(): boolean {
   return Boolean(MANDATE_CONTRACT)
 }
 
-const publicClient = createPublicClient({ chain: baseSepolia, transport: http() })
+const publicClient = createPublicClient({ chain: base, transport: http() })
 
 /** Agent address named in on-chain mandates; falls back to the owner in demo setups. */
 const AGENT_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ADDRESS ?? "") as Hex
@@ -30,7 +30,7 @@ export async function registerMandateOnChain(mandate: Mandate, owner: Hex): Prom
   if (!isOnChainEnabled()) throw new Error("NEXT_PUBLIC_MANDATE_CONTRACT is not set")
   if (!window.ethereum) throw new Error("No injected wallet found")
 
-  const wallet = createWalletClient({ chain: baseSepolia, transport: custom(window.ethereum) })
+  const wallet = createWalletClient({ chain: base, transport: custom(window.ethereum) })
   return wallet.writeContract({
     account: owner,
     address: MANDATE_CONTRACT as Hex,
