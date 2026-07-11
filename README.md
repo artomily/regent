@@ -242,6 +242,6 @@ Areas particularly worth feedback on:
 
 ## Social Media
 
-Follow the build on X: **[@artomily](https://x.com/artomily)**
+Follow the build on X: **[@arakaalts](https://x.com/arakaalts)**
 
 > You give the mandate. Regent executes. — an AI agent that acts inside hard, signed boundaries. No custody. No key exposure. Built on MetaMask Smart Accounts + Venice AI + 1Shot on Base Sepolia.
