@@ -377,7 +377,7 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               disabled={busy}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
             >
-              {busy ? "Authorizing…" : walletAddress ? "Sign & authorize Regent" : "Authorize Regent (demo)"}
+              {busy ? "Authorizing…" : walletAddress ? "Sign & authorize Regent" : "Authorize Regent (simulated)"}
             </button>
           </div>
         )}

@@ -82,7 +82,7 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
             {mandate.delegationHash ? truncateMiddle(mandate.delegationHash, 8, 6) : "—"}
           </dd>
           <p className="mt-1.5 text-[11px] text-fog">
-            {mandate.delegationHash ? "EIP-712 signature" : "Demo authorization"}
+            {mandate.delegationHash ? "EIP-712 signature" : "Simulated authorization"}
           </p>
         </div>
       </dl>

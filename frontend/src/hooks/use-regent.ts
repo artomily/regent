@@ -94,7 +94,7 @@ export function useRegent() {
 
   const connect = useCallback(async () => {
     if (!hasInjectedWallet()) {
-      throw new Error("No wallet detected. Install MetaMask to connect — or continue in demo mode.")
+      throw new Error("No wallet detected. Install MetaMask, or continue without connecting a wallet.")
     }
     const address = await connectWallet()
     if (!address) return null
@@ -156,7 +156,7 @@ export function useRegent() {
         addActivity(
           mandateId,
           "permission_granted",
-          "Demo authorization granted — connect a wallet for a real signature.",
+          "Authorization simulated — connect a wallet for a real signature.",
         )
       }
 

@@ -113,7 +113,7 @@ export default function MandatePage() {
               </ol>
               {!walletAddress && (
                 <p className="mt-4 rounded-xl border border-brass/25 bg-brass-faint px-4 py-3 text-xs leading-relaxed text-brass-bright">
-                  No wallet connected — the flow runs in demo mode with a simulated signature.
+                  No wallet connected — the flow runs with a simulated signature.
                 </p>
               )}
               <p className="mt-4 text-xs leading-relaxed text-dim">

@@ -273,7 +273,7 @@ if (block.timestamp >= m.expiry) revert `}<span className="text-negative">Expire
               Delegate the work. <em className="text-brass-bright">Keep the throne.</em>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-fog">
-              Try the full flow in demo mode — no keys, no testnet funds, nothing at risk.
+              Try the full flow — no keys, no testnet funds, nothing at risk.
             </p>
             <Link
               href="/mandate"
