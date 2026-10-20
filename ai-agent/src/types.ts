@@ -24,6 +24,7 @@ export interface Route {
   fee: number
   executionPrice: number
   simulated?: boolean
+  feeTier?: number
 }
 
 export type DecisionSource = "venice" | "heuristic"
@@ -43,6 +44,7 @@ export interface ExecutionResult {
   success: boolean
   transactionHash?: string
   txHash?: string
+  recordTxHash?: string
   spentAmount: number
   receivedAmount: number
   feeAmount: number
