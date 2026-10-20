@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og"
 
+// Note: OG image keeps literal hex colors because next/og ImageResponse renders
+// via Satori in an isolated edge/server environment and cannot read runtime CSS variables.
 export const alt = "Regent — you give the mandate, Regent executes"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
