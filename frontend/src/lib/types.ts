@@ -22,6 +22,10 @@ export interface Mandate {
   spent: number
   delegatorAddress?: Hex
   delegationHash?: Hex
+  smartAccountAddress?: Hex
+  onChainId?: Hex
+  delegation?: unknown
+  txHash?: Hex
 }
 
 export type AgentStep =
