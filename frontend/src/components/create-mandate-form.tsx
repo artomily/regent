@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 import type { Hex } from "viem"
 import { DEFAULT_SOURCE_ASSET, GOAL_PRESETS, TARGET_ASSET_PRESETS } from "@/lib/constants"
+import { isOnChainEnabled } from "@/lib/contract"
 import { formatPercent, truncateMiddle } from "@/lib/format"
 import type { Mandate } from "@/lib/types"
 
@@ -352,13 +353,28 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
           <div className="space-y-6 text-center">
             <FileSignature className="mx-auto h-10 w-10 text-brass" aria-hidden="true" />
             <div>
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-edge px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-fog">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${walletAddress && isOnChainEnabled() ? "bg-positive" : "bg-brass"}`}
+                    aria-hidden="true"
+                  />
+                  {walletAddress && isOnChainEnabled()
+                    ? "Live Mode · Base Sepolia"
+                    : walletAddress
+                      ? "Demo Mode · On-Chain Disabled"
+                      : "Simulation Mode"}
+                </span>
+              </div>
               <h3 className="font-display text-2xl text-cream">Grant authority</h3>
               <p className="mx-auto mt-2 max-w-sm text-sm text-fog">
                 {walletAddress ? (
                   <>
-                    Sign the mandate boundaries with{" "}
-                    <span className="font-mono text-cream">{truncateMiddle(walletAddress)}</span> (EIP-712).
-                    Regent can never act outside what you sign.
+                    Sign the ERC-7710 delegation from your MetaMask Smart Account with{" "}
+                    <span className="font-mono text-cream">{truncateMiddle(walletAddress)}</span>.
+                    {isOnChainEnabled()
+                      ? " Boundaries will be registered on RegentMandate."
+                      : " Authority is bounded to spending limit, expiry, and swap targets."}
                   </>
                 ) : (
                   "No wallet connected — authorization will be simulated so you can try the full flow. Connect MetaMask for a real signature."

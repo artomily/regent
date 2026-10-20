@@ -15,12 +15,11 @@ export async function GET(request: Request) {
 
   try {
     const sql = getSql()!
-    const rows = (await sql(
-      `SELECT * FROM mandates 
-       WHERE LOWER(owner_address) = $1 OR LOWER(COALESCE(smart_account_address, '')) = $1
-       ORDER BY created_at DESC`,
-      [owner],
-    )) as DbMandateRow[]
+    const rows = (await sql`
+      SELECT * FROM mandates 
+      WHERE LOWER(owner_address) = ${owner} OR LOWER(COALESCE(smart_account_address, '')) = ${owner}
+      ORDER BY created_at DESC
+    `) as DbMandateRow[]
 
     const mandates = rows.map(mapRowToMandate)
     return NextResponse.json({ mandates, configured: true })
@@ -56,14 +55,32 @@ export async function POST(request: Request) {
   try {
     const sql = getSql()!
     const now = Date.now()
+    const delegationJson = mandate.delegation ? JSON.stringify(mandate.delegation) : null
 
-    await sql(
-      `INSERT INTO mandates (
+    await sql`
+      INSERT INTO mandates (
         id, owner_address, smart_account_address, on_chain_id, goal, budget, spent, max_slippage,
         source_asset, target_asset, expiry, status, delegator_address, delegation_hash, delegation,
         tx_hash, created_at, updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+        ${mandate.id},
+        ${ownerAddress},
+        ${mandate.smartAccountAddress ?? null},
+        ${mandate.onChainId ?? null},
+        ${mandate.goal},
+        ${mandate.budget},
+        ${mandate.spent ?? 0},
+        ${mandate.maxSlippage},
+        ${mandate.sourceAsset},
+        ${mandate.targetAsset},
+        ${mandate.expiry},
+        ${mandate.status},
+        ${mandate.delegatorAddress ?? null},
+        ${mandate.delegationHash ?? null},
+        ${delegationJson ? JSON.parse(delegationJson) : null},
+        ${mandate.txHash ?? null},
+        ${mandate.createdAt ?? now},
+        ${now}
       )
       ON CONFLICT (id) DO UPDATE SET
         smart_account_address = EXCLUDED.smart_account_address,
@@ -73,28 +90,8 @@ export async function POST(request: Request) {
         delegation = EXCLUDED.delegation,
         delegation_hash = EXCLUDED.delegation_hash,
         tx_hash = EXCLUDED.tx_hash,
-        updated_at = EXCLUDED.updated_at`,
-      [
-        mandate.id,
-        ownerAddress,
-        mandate.smartAccountAddress ?? null,
-        mandate.onChainId ?? null,
-        mandate.goal,
-        mandate.budget,
-        mandate.spent ?? 0,
-        mandate.maxSlippage,
-        mandate.sourceAsset,
-        mandate.targetAsset,
-        mandate.expiry,
-        mandate.status,
-        mandate.delegatorAddress ?? null,
-        mandate.delegationHash ?? null,
-        mandate.delegation ? JSON.stringify(mandate.delegation) : null,
-        mandate.txHash ?? null,
-        mandate.createdAt ?? now,
-        now,
-      ],
-    )
+        updated_at = EXCLUDED.updated_at
+    `
 
     return NextResponse.json({ mandate, configured: true })
   } catch (error) {
@@ -132,42 +129,20 @@ export async function PATCH(request: Request) {
   try {
     const sql = getSql()!
     const now = Date.now()
+    const delegationJson = body.delegation ? JSON.stringify(body.delegation) : null
 
-    const setClauses: string[] = ["updated_at = $2"]
-    const params: unknown[] = [body.id, now]
-    let paramIndex = 3
-
-    if (body.status !== undefined) {
-      setClauses.push(`status = $${paramIndex++}`)
-      params.push(body.status)
-    }
-    if (body.spent !== undefined) {
-      setClauses.push(`spent = $${paramIndex++}`)
-      params.push(body.spent)
-    }
-    if (body.onChainId !== undefined) {
-      setClauses.push(`on_chain_id = $${paramIndex++}`)
-      params.push(body.onChainId)
-    }
-    if (body.txHash !== undefined) {
-      setClauses.push(`tx_hash = $${paramIndex++}`)
-      params.push(body.txHash)
-    }
-    if (body.delegation !== undefined) {
-      setClauses.push(`delegation = $${paramIndex++}`)
-      params.push(JSON.stringify(body.delegation))
-    }
-    if (body.delegationHash !== undefined) {
-      setClauses.push(`delegation_hash = $${paramIndex++}`)
-      params.push(body.delegationHash)
-    }
-    if (body.smartAccountAddress !== undefined) {
-      setClauses.push(`smart_account_address = $${paramIndex++}`)
-      params.push(body.smartAccountAddress)
-    }
-
-    const query = `UPDATE mandates SET ${setClauses.join(", ")} WHERE id = $1`
-    await sql(query, params)
+    await sql`
+      UPDATE mandates SET
+        status = COALESCE(${body.status ?? null}, status),
+        spent = COALESCE(${body.spent ?? null}, spent),
+        on_chain_id = COALESCE(${body.onChainId ?? null}, on_chain_id),
+        tx_hash = COALESCE(${body.txHash ?? null}, tx_hash),
+        delegation = COALESCE(${delegationJson ? JSON.parse(delegationJson) : null}, delegation),
+        delegation_hash = COALESCE(${body.delegationHash ?? null}, delegation_hash),
+        smart_account_address = COALESCE(${body.smartAccountAddress ?? null}, smart_account_address),
+        updated_at = ${now}
+      WHERE id = ${body.id}
+    `
 
     return NextResponse.json({ updated: true, configured: true })
   } catch (error) {

@@ -4,7 +4,16 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 import type { Hex } from "viem"
 import { addActivity, getActivityForMandate } from "@/lib/activity"
 import { fetchAgentHealth, requestEvaluation, requestExecution } from "@/lib/agent-client"
-import { isOnChainEnabled, registerMandateOnChain } from "@/lib/contract"
+import {
+  disableDelegationOnChain,
+  isOnChainEnabled,
+  registerMandateOnChain,
+  revokeMandateOnChain,
+} from "@/lib/contract"
+import {
+  buildMandateDelegation,
+  signMandateDelegation,
+} from "@/lib/delegation"
 import {
   checkBudget,
   checkSlippage,
@@ -17,7 +26,19 @@ import {
   validateMandate,
 } from "@/lib/mandate-engine"
 import type { AgentDecision, AgentHealth, ActivityEvent, ExecutionResult, Mandate } from "@/lib/types"
-import { connectWallet, ensureBaseMainnet, hasInjectedWallet, signMandateAuthorization } from "@/lib/wallet"
+import {
+  connectWallet,
+  createMetaMaskSmartAccount,
+  deploySmartAccountIfNeeded,
+  disconnectWallet,
+  ensureBaseSepolia,
+  getPersistedWalletAddress,
+  hasInjectedWallet,
+  setupWalletListeners,
+  signMandateAuthorization,
+} from "@/lib/wallet"
+import type { Delegation } from "@metamask/smart-accounts-kit"
+import { AGENT_ADDRESS, MANDATE_CONTRACT } from "@/lib/constants"
 
 const ACTIVE_KEY = "regent_active_view"
 const DECISION_KEY = "regent_last_decision"
@@ -40,15 +61,18 @@ function initialActive(): Mandate | null {
 }
 
 export function useRegent() {
-  // False during SSR and the hydration render, true right after — lets pages
-  // render a stable skeleton while the lazy initializers below read storage.
   const hydrated = useSyncExternalStore(
     subscribeNoop,
     () => true,
     () => false,
   )
 
-  const [walletAddress, setWalletAddress] = useState<Hex | null>(null)
+  const [walletAddress, setWalletAddress] = useState<Hex | null>(() =>
+    isServer() ? null : getPersistedWalletAddress(),
+  )
+  const [smartAccountAddress, setSmartAccountAddress] = useState<Hex | null>(null)
+  const [isSmartAccountDeployed, setIsSmartAccountDeployed] = useState(false)
+
   const [mandates, setMandates] = useState<Mandate[]>(() => (isServer() ? [] : getAllMandates()))
   const [activeMandate, setActiveMandate] = useState<Mandate | null>(initialActive)
   const [activityLog, setActivityLog] = useState<ActivityEvent[]>(() => {
@@ -70,6 +94,44 @@ export function useRegent() {
   const [isAgentRunning, setIsAgentRunning] = useState(false)
   const [agentHealth, setAgentHealth] = useState<AgentHealth | null>(null)
 
+  // Derive smart account address when wallet address changes
+  useEffect(() => {
+    if (!walletAddress) return
+
+    let active = true
+    createMetaMaskSmartAccount(walletAddress)
+      .then(async (sa) => {
+        if (!active) return
+        setSmartAccountAddress(sa.address)
+        const deployed = await sa.isDeployed()
+        if (active) setIsSmartAccountDeployed(deployed)
+      })
+      .catch((err) => {
+        console.warn("Failed to compute smart account address:", err)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [walletAddress])
+
+  const activeSmartAccountAddress = walletAddress ? smartAccountAddress : null
+  const activeSmartAccountDeployed = walletAddress ? isSmartAccountDeployed : false
+
+  // Wallet listeners
+  useEffect(() => {
+    const cleanup = setupWalletListeners(
+      (newAccount) => {
+        setWalletAddress(newAccount)
+      },
+      () => {
+        // Chain changed
+      },
+    )
+    return cleanup
+  }, [])
+
+  // Agent health polling
   useEffect(() => {
     let cancelled = false
     const poll = async () => {
@@ -98,11 +160,16 @@ export function useRegent() {
     }
     const address = await connectWallet()
     if (!address) return null
-    await ensureBaseMainnet().catch(() => {
-      // Wrong network is tolerable in demo mode; surfaced via the header pill.
-    })
+    await ensureBaseSepolia().catch(() => {})
     setWalletAddress(address)
     return address
+  }, [])
+
+  const disconnect = useCallback(() => {
+    disconnectWallet()
+    setWalletAddress(null)
+    setSmartAccountAddress(null)
+    setIsSmartAccountDeployed(false)
   }, [])
 
   const create = useCallback(
@@ -128,9 +195,18 @@ export function useRegent() {
       addActivity(mandate.id, "mandate_created", `Mandate created: ${mandate.goal}`)
       addActivity(mandate.id, "awaiting_permission", "Waiting for the owner to authorize Regent…")
       refresh(mandate.id)
+
+      if (walletAddress) {
+        fetch("/api/mandates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mandate, ownerAddress: walletAddress }),
+        }).catch(() => {})
+      }
+
       return mandate
     },
-    [refresh],
+    [refresh, walletAddress],
   )
 
   const authorize = useCallback(
@@ -139,20 +215,78 @@ export function useRegent() {
       if (!mandate) throw new Error("Mandate not found")
 
       if (walletAddress) {
-        const signature = await signMandateAuthorization(mandate, walletAddress)
-        updateMandateDelegation(mandateId, { delegatorAddress: walletAddress, delegationHash: signature })
-        addActivity(mandateId, "permission_granted", "Mandate boundaries signed (EIP-712).", {
-          delegationHash: signature,
+        // 1. Create MetaMask Smart Account
+        const smartAccount = await createMetaMaskSmartAccount(walletAddress)
+        setSmartAccountAddress(smartAccount.address)
+
+        // 2. Deploy smart account on first use if needed
+        try {
+          const deployTx = await deploySmartAccountIfNeeded(smartAccount, walletAddress)
+          if (deployTx) {
+            setIsSmartAccountDeployed(true)
+            addActivity(mandateId, "permission_granted", "MetaMask Smart Account deployed on Base Sepolia.", {
+              transactionHash: deployTx,
+            })
+          }
+        } catch (e) {
+          console.warn("Smart account deployment check failed or skipped:", e)
+        }
+
+        // 3. Build & sign ERC-7710 delegation with caveats
+        const rawDelegation = buildMandateDelegation({
+          smartAccountAddress: smartAccount.address,
+          agentAddress: AGENT_ADDRESS || undefined,
+          mandate,
+          mandateContractAddress: MANDATE_CONTRACT ? (MANDATE_CONTRACT as Hex) : undefined,
         })
 
+        const signedDelegation = await signMandateDelegation(smartAccount, rawDelegation)
+        addActivity(mandateId, "permission_granted", "ERC-7710 delegation signed by Smart Account.", {
+          delegationHash: signedDelegation.signature,
+        })
+
+        let onChainId: Hex | undefined
+        let txHash: Hex | undefined
+
+        // 4. On-chain mandate registration on RegentMandate
         if (isOnChainEnabled()) {
-          const txHash = await registerMandateOnChain(mandate, walletAddress)
-          addActivity(mandateId, "permission_granted", "Mandate registered on RegentMandate (Base).", {
+          const registered = await registerMandateOnChain(mandate, walletAddress)
+          onChainId = registered.onChainId
+          txHash = registered.txHash
+          addActivity(mandateId, "permission_granted", "Mandate registered on RegentMandate (Base Sepolia).", {
             transactionHash: txHash,
+            onChainId,
           })
+        }
+
+        // Update local mandate record
+        const updated = updateMandateDelegation(mandateId, {
+          delegatorAddress: walletAddress,
+          delegationHash: signedDelegation.signature,
+          smartAccountAddress: smartAccount.address,
+          onChainId,
+          delegation: signedDelegation,
+          txHash,
+        })
+
+        // Sync with database API
+        if (updated) {
+          fetch("/api/mandates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mandate: updated, ownerAddress: walletAddress }),
+          }).catch(() => {})
         }
       } else {
         await wait(900)
+        // Fallback authorization for demo/simulation without wallet
+        const signature = await signMandateAuthorization(mandate, "0x0000000000000000000000000000000000000000" as Hex).catch(
+          () => "0x" as Hex,
+        )
+        updateMandateDelegation(mandateId, {
+          delegatorAddress: "0x0000000000000000000000000000000000000000" as Hex,
+          delegationHash: signature,
+        })
         addActivity(
           mandateId,
           "permission_granted",
@@ -167,9 +301,6 @@ export function useRegent() {
     [refresh, walletAddress],
   )
 
-  // Step 1 of 2: scan routes and get a decision. Stops there — execution is
-  // a separate, explicit step (executeAgent) so nothing spends without a
-  // second confirmation once the agent has picked a route.
   const evaluateAgent = useCallback(
     async (mandateId: string) => {
       const mandate = getMandate(mandateId)
@@ -182,7 +313,7 @@ export function useRegent() {
 
       try {
         updateMandateStatus(mandateId, "active")
-        addActivity(mandateId, "scanning_routes", "Scanning DEX routes on Base…")
+        addActivity(mandateId, "scanning_routes", "Scanning DEX routes on Base Sepolia…")
         refresh(mandateId)
         await wait(700)
 
@@ -227,9 +358,6 @@ export function useRegent() {
     [isAgentRunning, refresh],
   )
 
-  // Step 2 of 2: the user has seen the chosen route and explicitly confirms.
-  // Boundaries are re-checked here too — the mandate is law regardless of
-  // what was decided a moment ago.
   const executeAgent = useCallback(
     async (mandateId: string) => {
       const mandate = getMandate(mandateId)
@@ -268,6 +396,16 @@ export function useRegent() {
             `Confirmed. Spent ${result.spentAmount} ${mandate.sourceAsset}, received ${result.receivedAmount} ${mandate.targetAsset}.`,
             { transactionHash: result.transactionHash, source: result.source },
           )
+          fetch("/api/mandates", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: mandateId,
+              status: "completed",
+              spent: mandate.spent + result.spentAmount,
+              txHash: result.transactionHash,
+            }),
+          }).catch(() => {})
         } else {
           updateMandateStatus(mandateId, "rejected")
           addActivity(mandateId, "confirming_transaction", result.error ?? "Execution failed.")
@@ -281,12 +419,35 @@ export function useRegent() {
   )
 
   const revoke = useCallback(
-    (mandateId: string) => {
+    async (mandateId: string) => {
+      const mandate = getMandate(mandateId)
+      if (mandate && walletAddress) {
+        if (isOnChainEnabled() && mandate.onChainId) {
+          await revokeMandateOnChain(mandate.onChainId, walletAddress).catch((err) => {
+            console.warn("Failed to revoke mandate on-chain:", err)
+          })
+          addActivity(mandateId, "mandate_revoked", "On-chain mandate revoked on RegentMandate.")
+        }
+
+        if (mandate.delegation) {
+          await disableDelegationOnChain(mandate.delegation as Delegation, walletAddress).catch((err) => {
+            console.warn("Failed to disable delegation on-chain:", err)
+          })
+          addActivity(mandateId, "mandate_revoked", "ERC-7710 delegation disabled via DelegationManager.")
+        }
+
+        fetch("/api/mandates", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: mandateId, status: "revoked" }),
+        }).catch(() => {})
+      }
+
       updateMandateStatus(mandateId, "revoked")
       addActivity(mandateId, "mandate_revoked", "Mandate revoked by the owner. Regent's authority has ended.")
       refresh(mandateId)
     },
-    [refresh],
+    [refresh, walletAddress],
   )
 
   const reset = useCallback(() => {
@@ -314,9 +475,16 @@ export function useRegent() {
     [refresh],
   )
 
+  const isLive = isOnChainEnabled() && Boolean(walletAddress)
+  const mode: "live" | "demo" = isLive ? "live" : "demo"
+
   return {
     hydrated,
     walletAddress,
+    smartAccountAddress: activeSmartAccountAddress,
+    isSmartAccountDeployed: activeSmartAccountDeployed,
+    isOnChain: isOnChainEnabled(),
+    mode,
     mandates,
     activeMandate,
     activityLog,
@@ -325,6 +493,7 @@ export function useRegent() {
     isAgentRunning,
     agentHealth,
     connect,
+    disconnect,
     createMandate: create,
     authorizeMandate: authorize,
     evaluateAgent,

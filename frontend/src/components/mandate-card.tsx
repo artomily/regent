@@ -26,6 +26,9 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
           <p className="mt-1 text-xs text-fog">Issued {formatTimeAgo(mandate.createdAt)}</p>
         </div>
         <div className="flex items-center gap-2">
+          <span className="rounded-full border border-edge px-2.5 py-0.5 font-mono text-[10px] tracking-wide text-fog uppercase">
+            {mandate.onChainId ? "Live" : "Demo"}
+          </span>
           <StatusChip status={mandate.status} />
           {revocable && (
             <button
@@ -82,7 +85,11 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
             {mandate.delegationHash ? truncateMiddle(mandate.delegationHash, 8, 6) : "—"}
           </dd>
           <p className="mt-1.5 text-[11px] text-fog">
-            {mandate.delegationHash ? "EIP-712 signature" : "Simulated authorization"}
+            {mandate.delegation
+              ? "ERC-7710 delegation"
+              : mandate.delegationHash
+                ? "EIP-712 signature"
+                : "Simulated authorization"}
           </p>
         </div>
       </dl>
@@ -90,10 +97,24 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
       <p className="mt-4 text-xs text-fog">
         Acquiring <span className="font-mono text-cream">{mandate.targetAsset}</span> with{" "}
         <span className="font-mono text-cream">{mandate.sourceAsset}</span>
-        {mandate.delegatorAddress && (
+        {mandate.smartAccountAddress ? (
+          <>
+            {" "}
+            via Smart Account <span className="font-mono text-cream">{truncateMiddle(mandate.smartAccountAddress)}</span>
+            {mandate.delegatorAddress && (
+              <> (owner: <span className="font-mono text-cream">{truncateMiddle(mandate.delegatorAddress)}</span>)</>
+            )}
+          </>
+        ) : mandate.delegatorAddress ? (
           <>
             {" "}
             on behalf of <span className="font-mono text-cream">{truncateMiddle(mandate.delegatorAddress)}</span>
+          </>
+        ) : null}
+        {mandate.onChainId && (
+          <>
+            {" "}
+            · Mandate ID: <span className="font-mono text-cream">{truncateMiddle(mandate.onChainId, 6, 4)}</span>
           </>
         )}
         . Regent may act only inside these boundaries — every breach reverts.
