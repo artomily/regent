@@ -1,26 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand palette — see brand.md at the repo root. Warm near-black + brass. */
-  --color-ink: #0f0d0a;
-  --color-surface: #16130e;
-  --color-raised: #1e1a13;
-  --color-overlay: #27221a;
-  --color-edge: rgb(236 230 217 / 0.08);
-  --color-edge-strong: rgb(236 230 217 / 0.18);
-  --color-cream: #ece6d9;
-  --color-fog: #a89e8a;
-  --color-dim: #7a7263;
-  --color-brass: #c9a35e;
-  --color-brass-bright: #e2c280;
-  --color-brass-faint: rgb(201 163 94 / 0.12);
-  --color-positive: #7ed09a;
-  --color-negative: #e07a7a;
-  --color-info: #8db8e8;
+  /* Editorial light palette modeled on Wellmo reference */
+  --color-canvas: #F5F4EE;
+  --color-panel: #EDECE5;
+  --color-surface: #FAF9F4;
+  --color-raised: #EDECE5;
+  --color-overlay: #E4E3DB;
+  --color-ink: #111110;
+  --color-muted: #8A8A85;
+  --color-fog: #8A8A85;
+  --color-dim: #A8A8A2;
+  --color-cream: #111110;
+  --color-edge: #DCDBD3;
+  --color-edge-strong: #C4C3B9;
+  --color-lime: #E3E82A;
+  --color-lime-bright: #ECF036;
+  --color-lime-faint: rgba(227, 232, 42, 0.18);
+  --color-brass: #E3E82A;
+  --color-brass-bright: #111110;
+  --color-brass-faint: rgba(227, 232, 42, 0.18);
+  --color-positive: #166534;
+  --color-negative: #DC2626;
+  --color-info: #2563EB;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --font-display: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
   --animate-rise: rise 0.7s cubic-bezier(0.21, 0.55, 0.27, 1) both;
   --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
@@ -48,12 +54,13 @@
 }
 
 body {
-  background: var(--color-ink);
-  color: var(--color-cream);
+  background: var(--color-canvas);
+  color: var(--color-ink);
 }
 
 ::selection {
-  background: rgb(201 163 94 / 0.3);
+  background: var(--color-lime);
+  color: var(--color-ink);
 }
 
 /* Numbers line up everywhere by default. */
@@ -66,7 +73,7 @@ input[type="range"] {
   appearance: none;
   height: 4px;
   border-radius: 2px;
-  background: var(--color-overlay);
+  background: var(--color-edge);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -75,14 +82,14 @@ input[type="range"]::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-brass);
-  border: 2px solid var(--color-ink);
+  background: var(--color-ink);
+  border: 2px solid var(--color-canvas);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 
 input[type="range"]:focus-visible {
-  outline: 2px solid var(--color-brass);
+  outline: 2px solid var(--color-ink);
   outline-offset: 4px;
 }
 
