@@ -10,11 +10,38 @@ import {
   http,
   type Hex,
 } from "viem"
+import { createBundlerClient } from "viem/account-abstraction"
 import { baseSepolia } from "viem/chains"
-import { BASE_SEPOLIA_CHAIN_ID, CHAIN, MANDATE_CONTRACT } from "./constants"
+import {
+  BASE_SEPOLIA_CHAIN_ID,
+  BUNDLER_URL,
+  CHAIN,
+  MANDATE_CONTRACT,
+  TOKEN_ADDRESSES,
+} from "./constants"
 import type { Mandate } from "./types"
 
 const WALLET_STORAGE_KEY = "regent_connected_address"
+
+export const ERC20_ABI = [
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "transfer",
+    inputs: [
+      { name: "recipient", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+] as const
 
 export function hasInjectedWallet(): boolean {
   return typeof window !== "undefined" && Boolean(window.ethereum)
@@ -33,6 +60,17 @@ export function getWalletClient(account?: Hex) {
     account,
     chain: baseSepolia,
     transport: custom(window.ethereum),
+  })
+}
+
+export function getBundlerClient(smartAccount?: MetaMaskSmartAccount) {
+  if (!BUNDLER_URL) return null
+  const publicClient = getPublicClient()
+  return createBundlerClient({
+    account: smartAccount,
+    chain: baseSepolia,
+    client: publicClient,
+    transport: http(BUNDLER_URL),
   })
 }
 
@@ -140,15 +178,38 @@ export async function createMetaMaskSmartAccount(owner: Hex): Promise<MetaMaskSm
 }
 
 /**
- * Deploys the smart account on first use if not already deployed.
- * If bundler URL is present it can be deployed via bundler; otherwise sends deploy transaction from EOA.
+ * Deploys the smart account if it has no on-chain bytecode.
+ * Uses bundler client UserOp if NEXT_PUBLIC_BUNDLER_URL is set, otherwise deploys via EOA factory transaction.
  */
 export async function deploySmartAccountIfNeeded(
   smartAccount: MetaMaskSmartAccount,
   owner: Hex,
 ): Promise<Hex | null> {
-  const isDeployed = await smartAccount.isDeployed()
-  if (isDeployed) return null
+  const publicClient = getPublicClient()
+  const bytecode = await publicClient.getBytecode({ address: smartAccount.address })
+  if (bytecode && bytecode !== "0x") {
+    return null
+  }
+
+  const bundler = getBundlerClient(smartAccount)
+  if (bundler) {
+    try {
+      const userOpHash = await bundler.sendUserOperation({
+        account: smartAccount,
+        calls: [
+          {
+            to: smartAccount.address,
+            value: BigInt(0),
+            data: "0x",
+          },
+        ],
+      })
+      const receipt = await bundler.waitForUserOperationReceipt({ hash: userOpHash })
+      return receipt.receipt.transactionHash
+    } catch (err) {
+      console.warn("Bundler UserOp deployment failed, falling back to EOA factory deployment:", err)
+    }
+  }
 
   const factoryArgs = await smartAccount.getFactoryArgs()
   if (!factoryArgs) return null
@@ -161,9 +222,52 @@ export async function deploySmartAccountIfNeeded(
     chain: baseSepolia,
   })
 
-  const publicClient = getPublicClient()
   await publicClient.waitForTransactionReceipt({ hash: txHash })
   return txHash
+}
+
+/**
+ * Query smart account's USDC balance on Base Sepolia.
+ */
+export async function getUSDCBalance(address: Hex): Promise<{ raw: bigint; formatted: number }> {
+  const publicClient = getPublicClient()
+  try {
+    const raw = (await publicClient.readContract({
+      address: TOKEN_ADDRESSES.USDC,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [address],
+    })) as bigint
+    const formatted = Number(raw) / 1e6
+    return { raw, formatted }
+  } catch (err) {
+    console.warn("Failed to read USDC balance:", err)
+    return { raw: BigInt(0), formatted: 0 }
+  }
+}
+
+/**
+ * Transfers USDC from the user's connected EOA to their smart account.
+ */
+export async function transferUSDCToSmartAccount(
+  owner: Hex,
+  smartAccountAddress: Hex,
+  amountUSDC: number,
+): Promise<Hex> {
+  const wallet = getWalletClient(owner)
+  const publicClient = getPublicClient()
+  const amountUnits = BigInt(Math.ceil(amountUSDC * 1e6))
+
+  const hash = await wallet.writeContract({
+    account: owner,
+    address: TOKEN_ADDRESSES.USDC,
+    abi: ERC20_ABI,
+    functionName: "transfer",
+    args: [smartAccountAddress, amountUnits],
+  })
+
+  await publicClient.waitForTransactionReceipt({ hash })
+  return hash
 }
 
 /**

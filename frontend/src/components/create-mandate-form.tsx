@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, CheckCircle2, FileSignature, ScrollText } from "lucide-react"
+import { ArrowLeft, ArrowRight, CheckCircle2, Coins, FileSignature, ScrollText } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import type { Hex } from "viem"
@@ -11,6 +11,10 @@ import type { Mandate } from "@/lib/types"
 
 interface CreateMandateFormProps {
   walletAddress: Hex | null
+  smartAccountAddress?: Hex | null
+  smartAccountBalance?: number | null
+  onFundSmartAccount?: (amountUSDC: number) => Promise<Hex>
+  onRefreshBalance?: () => Promise<number | null>
   onCreate: (params: {
     goal: string
     budget: number
@@ -30,10 +34,20 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "authorize", label: "Authorize" },
 ]
 
-export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: CreateMandateFormProps) {
+export function CreateMandateForm({
+  walletAddress,
+  smartAccountAddress,
+  smartAccountBalance,
+  onFundSmartAccount,
+  onRefreshBalance,
+  onCreate,
+  onAuthorize,
+}: CreateMandateFormProps) {
   const [step, setStep] = useState<Step>("define")
   const [mandate, setMandate] = useState<Mandate | null>(null)
   const [busy, setBusy] = useState(false)
+  const [fundingBusy, setFundingBusy] = useState(false)
+  const [fundSuccess, setFundSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [goal, setGoal] = useState<string>(GOAL_PRESETS[0].goal)
@@ -46,6 +60,22 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
   const [expiryPreview, setExpiryPreview] = useState<Date | null>(null)
 
   const budgetNumber = Number(budget)
+  const isLive = isOnChainEnabled() && Boolean(walletAddress)
+  const isUsdc = sourceAsset.trim().toUpperCase() === "USDC"
+  const hasSmartAccount = Boolean(walletAddress && smartAccountAddress)
+
+  const isBalanceSufficient =
+    !isLive ||
+    !isUsdc ||
+    (smartAccountBalance !== null &&
+      smartAccountBalance !== undefined &&
+      smartAccountBalance >= budgetNumber)
+
+  const shortfall =
+    smartAccountBalance !== null && smartAccountBalance !== undefined
+      ? Math.max(0, budgetNumber - smartAccountBalance)
+      : budgetNumber
+
   const defineValid =
     goal.trim().length > 0 &&
     Number.isFinite(budgetNumber) &&
@@ -53,7 +83,33 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
     targetAsset.trim().length > 0 &&
     targetAsset.trim().toUpperCase() !== sourceAsset.trim().toUpperCase()
 
+  const handleFund = async () => {
+    if (!onFundSmartAccount) return
+    setFundingBusy(true)
+    setError(null)
+    setFundSuccess(null)
+    try {
+      const fundAmount = shortfall > 0 ? shortfall : budgetNumber
+      const tx = await onFundSmartAccount(fundAmount)
+      setFundSuccess(
+        `Transferred ${fundAmount.toFixed(2)} USDC to smart account (${truncateMiddle(tx)})`,
+      )
+      await onRefreshBalance?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to fund smart account")
+    } finally {
+      setFundingBusy(false)
+    }
+  }
+
   const handleCreate = async () => {
+    if (isLive && !isBalanceSufficient) {
+      setError(
+        `Insufficient smart account balance. Please fund your smart account with at least ${budgetNumber} USDC.`,
+      )
+      return
+    }
+
     setBusy(true)
     setError(null)
     try {
@@ -76,6 +132,12 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
 
   const handleAuthorize = async () => {
     if (!mandate) return
+    if (isLive && !isBalanceSufficient) {
+      setError(
+        `Cannot authorize: smart account requires at least ${budgetNumber} USDC to back delegation.`,
+      )
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -279,12 +341,68 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               </div>
             </div>
 
+            {hasSmartAccount && (
+              <div className="rounded-xl border border-edge bg-raised p-4">
+                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-xs font-medium text-fog">Smart Account</p>
+                    <p className="font-mono text-xs text-cream">{truncateMiddle(smartAccountAddress!)}</p>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-xs font-medium text-fog">Smart Account USDC Balance</p>
+                    <p
+                      className={`font-mono text-sm font-semibold ${
+                        smartAccountBalance != null && smartAccountBalance >= budgetNumber
+                          ? "text-positive"
+                          : "text-brass"
+                      }`}
+                    >
+                      {smartAccountBalance != null
+                        ? `${smartAccountBalance.toFixed(2)} USDC`
+                        : "Checking balance…"}
+                    </p>
+                  </div>
+                </div>
+
+                {isLive && smartAccountBalance !== null && smartAccountBalance !== undefined && smartAccountBalance < budgetNumber && (
+                  <div className="mt-3 rounded-lg border border-brass/30 bg-brass-faint p-3">
+                    <div className="flex items-start gap-2">
+                      <Coins className="mt-0.5 h-4 w-4 shrink-0 text-brass-bright" aria-hidden="true" />
+                      <div className="flex-1">
+                        <p className="text-xs leading-relaxed text-brass-bright">
+                          Smart Account has {smartAccountBalance.toFixed(2)} USDC, which is less than the required {budgetNumber} USDC budget.
+                          The AI agent redeems the ERC-7710 delegation directly from your smart account on Base Sepolia.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleFund}
+                          disabled={fundingBusy}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brass px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-brass-bright disabled:opacity-50"
+                        >
+                          {fundingBusy ? "Transferring USDC…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fundSuccess && <p className="mt-2 text-xs text-positive">{fundSuccess}</p>}
+              </div>
+            )}
+
+            {isLive && !isBalanceSufficient && (
+              <p className="text-xs text-negative">
+                Smart account has insufficient USDC balance ({smartAccountBalance?.toFixed(2) ?? 0} / {budgetNumber} USDC).
+                Fund the smart account to proceed in live mode.
+              </p>
+            )}
+
             <button
               onClick={() => {
                 setExpiryPreview(new Date(Date.now() + expiryHours * 3_600_000))
                 setStep("review")
               }}
-              disabled={!defineValid}
+              disabled={!defineValid || (isLive && !isBalanceSufficient)}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-40"
             >
               Review the mandate <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -318,6 +436,12 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
                   <dt className="text-fog">§4 Acquiring</dt>
                   <dd className="font-mono text-cream">{targetAsset}</dd>
                 </div>
+                {hasSmartAccount && (
+                  <div className="flex justify-between gap-4 border-t border-edge pt-2.5">
+                    <dt className="text-fog">Smart Account</dt>
+                    <dd className="font-mono text-cream">{truncateMiddle(smartAccountAddress!)}</dd>
+                  </div>
+                )}
               </dl>
               <p className="mt-4 border-t border-edge pt-3 text-xs leading-relaxed text-fog">
                 Regent may act only inside these clauses. Anything beyond them reverts — on-chain, in the
@@ -340,7 +464,7 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               </button>
               <button
                 onClick={handleCreate}
-                disabled={busy}
+                disabled={busy || (isLive && !isBalanceSufficient)}
                 className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
               >
                 {busy ? "Creating…" : "Create mandate"}
@@ -382,6 +506,40 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               </p>
             </div>
 
+            {hasSmartAccount && isLive && (
+              <div className="mx-auto max-w-sm rounded-xl border border-edge bg-raised p-3 text-left">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-fog">Smart Account</span>
+                  <span className="font-mono text-cream">{truncateMiddle(smartAccountAddress!)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs">
+                  <span className="text-fog">USDC Balance</span>
+                  <span
+                    className={`font-mono font-medium ${
+                      smartAccountBalance != null && smartAccountBalance >= budgetNumber
+                        ? "text-positive"
+                        : "text-brass"
+                    }`}
+                  >
+                    {smartAccountBalance != null
+                      ? `${smartAccountBalance.toFixed(2)} USDC`
+                      : "Checking…"}
+                  </span>
+                </div>
+
+                {smartAccountBalance !== null && smartAccountBalance !== undefined && smartAccountBalance < budgetNumber && (
+                  <button
+                    type="button"
+                    onClick={handleFund}
+                    disabled={fundingBusy}
+                    className="mt-2.5 w-full rounded-full bg-brass py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-brass-bright disabled:opacity-50"
+                  >
+                    {fundingBusy ? "Funding Smart Account…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
+                  </button>
+                )}
+              </div>
+            )}
+
             {error && (
               <p role="alert" className="rounded-xl border border-negative/30 bg-negative/10 px-4 py-3 text-sm text-negative">
                 {error}
@@ -390,7 +548,7 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
 
             <button
               onClick={handleAuthorize}
-              disabled={busy}
+              disabled={busy || (isLive && !isBalanceSufficient)}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
             >
               {busy ? "Authorizing…" : walletAddress ? "Sign & authorize Regent" : "Authorize Regent (simulated)"}

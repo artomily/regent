@@ -27,7 +27,17 @@ const NEVER = [
 ]
 
 export default function MandatePage() {
-  const { walletAddress, agentHealth, connect, createMandate, authorizeMandate } = useRegent()
+  const {
+    walletAddress,
+    smartAccountAddress,
+    smartAccountUSDCBalance,
+    fundSmartAccount,
+    refreshSmartAccountBalance,
+    agentHealth,
+    connect,
+    createMandate,
+    authorizeMandate,
+  } = useRegent()
 
   return (
     <>
@@ -52,6 +62,10 @@ export default function MandatePage() {
             <div className="mt-8">
               <CreateMandateForm
                 walletAddress={walletAddress}
+                smartAccountAddress={smartAccountAddress}
+                smartAccountBalance={smartAccountUSDCBalance}
+                onFundSmartAccount={fundSmartAccount}
+                onRefreshBalance={refreshSmartAccountBalance}
                 onCreate={createMandate}
                 onAuthorize={authorizeMandate}
               />

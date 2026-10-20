@@ -2,6 +2,7 @@ import {
   contracts,
   getSmartAccountsEnvironment,
   type Delegation,
+  type MetaMaskSmartAccount,
 } from "@metamask/smart-accounts-kit"
 import {
   createPublicClient,
@@ -22,6 +23,11 @@ import {
   TOKEN_ADDRESSES,
 } from "./constants"
 import type { Mandate } from "./types"
+import {
+  createMetaMaskSmartAccount,
+  deploySmartAccountIfNeeded,
+  getBundlerClient,
+} from "./wallet"
 
 export const regentMandateAbi = artifact.abi as Abi
 
@@ -39,6 +45,13 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Hex
 export interface RegisterMandateResult {
   txHash: Hex
   onChainId: Hex
+}
+
+export interface DisableDelegationResult {
+  txHash?: Hex
+  userOpHash?: Hex
+  disabledOnChain: boolean
+  message: string
 }
 
 /**
@@ -80,11 +93,15 @@ export async function registerMandateOnChain(
     ],
   })
 
-  // Wait for receipt and decode the MandateCreated event
+  // Wait for receipt and decode the MandateCreated event strictly from MANDATE_CONTRACT
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  const expectedContract = (MANDATE_CONTRACT as Hex).toLowerCase()
 
   let onChainId: Hex | null = null
   for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== expectedContract) {
+      continue
+    }
     try {
       const decoded = decodeEventLog({
         abi: regentMandateAbi,
@@ -96,17 +113,14 @@ export async function registerMandateOnChain(
         break
       }
     } catch {
-      // Ignore logs that don't match MandateCreated
+      // Ignore non-matching logs from this address
     }
   }
 
-  // Fallback: if topic[1] is present in the first matching log
-  if (!onChainId && receipt.logs.length > 0) {
-    onChainId = (receipt.logs[0].topics[1] as Hex) || null
-  }
-
   if (!onChainId) {
-    throw new Error("Mandate created on-chain but could not parse onChainId from receipt")
+    throw new Error(
+      `MandateCreated event from ${MANDATE_CONTRACT} was not found in transaction receipt ${hash}`,
+    )
   }
 
   return { txHash: hash, onChainId }
@@ -114,6 +128,8 @@ export async function registerMandateOnChain(
 
 /**
  * Revoke mandate on-chain via RegentMandate.
+ * This represents an on-chain mandate registry state change (MandateStatus.Revoked),
+ * preventing any future execution from being recorded against this mandate ID.
  */
 export async function revokeMandateOnChain(onChainId: Hex, owner: Hex): Promise<Hex> {
   if (!isOnChainEnabled()) throw new Error("NEXT_PUBLIC_MANDATE_CONTRACT is not set")
@@ -133,26 +149,54 @@ export async function revokeMandateOnChain(onChainId: Hex, owner: Hex): Promise<
 }
 
 /**
- * Disables the ERC-7710 delegation on-chain via DelegationManager.
+ * Disables the ERC-7710 delegation on-chain in DelegationManager via an ERC-4337 Smart Account UserOperation.
+ *
+ * NOTE ON REVOCATION ARCHITECTURE:
+ * - RegentMandate.revokeMandate(): Revokes the mandate record in RegentMandate's registry (called by owner EOA).
+ * - DelegationManager.disableDelegation(): Disables the ERC-7710 delegation key on-chain so delegate redemption reverts.
+ *   Because DelegationManager checks msg.sender == delegation.delegator (the Smart Account), this must be executed
+ *   as a UserOperation by the Smart Account via an ERC-4337 bundler.
  */
 export async function disableDelegationOnChain(
   delegation: Delegation,
   owner: Hex,
-): Promise<Hex> {
-  if (!window.ethereum) throw new Error("No injected wallet found")
+  smartAccount?: MetaMaskSmartAccount,
+): Promise<DisableDelegationResult> {
   const env = getSmartAccountsEnvironment(BASE_SEPOLIA_CHAIN_ID)
-  const wallet = createWalletClient({ chain: baseSepolia, transport: custom(window.ethereum) })
-
   const callData = contracts.DelegationManager.encode.disableDelegation({ delegation })
-  const hash = await wallet.sendTransaction({
-    account: owner,
-    to: env.DelegationManager,
-    data: callData,
-    chain: baseSepolia,
+
+  const sa = smartAccount ?? (await createMetaMaskSmartAccount(owner))
+  await deploySmartAccountIfNeeded(sa, owner)
+
+  const bundler = getBundlerClient(sa)
+  if (!bundler) {
+    const message =
+      "NEXT_PUBLIC_BUNDLER_URL not configured: DelegationManager disable requires an ERC-4337 UserOp from the smart account. Skipping DelegationManager disable; mandate was revoked on RegentMandate registry."
+    console.warn(message)
+    return {
+      disabledOnChain: false,
+      message,
+    }
+  }
+
+  const userOpHash = await bundler.sendUserOperation({
+    account: sa,
+    calls: [
+      {
+        to: env.DelegationManager,
+        data: callData,
+        value: BigInt(0),
+      },
+    ],
   })
 
-  await publicClient.waitForTransactionReceipt({ hash })
-  return hash
+  const receipt = await bundler.waitForUserOperationReceipt({ hash: userOpHash })
+  return {
+    txHash: receipt.receipt.transactionHash,
+    userOpHash,
+    disabledOnChain: true,
+    message: "Delegation disabled on DelegationManager via Smart Account UserOp.",
+  }
 }
 
 export async function readRemainingBudget(onChainId: Hex): Promise<bigint> {

@@ -33,9 +33,11 @@ import {
   disconnectWallet,
   ensureBaseSepolia,
   getPersistedWalletAddress,
+  getUSDCBalance,
   hasInjectedWallet,
   setupWalletListeners,
   signMandateAuthorization,
+  transferUSDCToSmartAccount,
 } from "@/lib/wallet"
 import type { Delegation } from "@metamask/smart-accounts-kit"
 import { AGENT_ADDRESS, MANDATE_CONTRACT } from "@/lib/constants"
@@ -72,6 +74,7 @@ export function useRegent() {
   )
   const [smartAccountAddress, setSmartAccountAddress] = useState<Hex | null>(null)
   const [isSmartAccountDeployed, setIsSmartAccountDeployed] = useState(false)
+  const [smartAccountUSDCBalance, setSmartAccountUSDCBalance] = useState<number | null>(null)
 
   const [mandates, setMandates] = useState<Mandate[]>(() => (isServer() ? [] : getAllMandates()))
   const [activeMandate, setActiveMandate] = useState<Mandate | null>(initialActive)
@@ -94,7 +97,19 @@ export function useRegent() {
   const [isAgentRunning, setIsAgentRunning] = useState(false)
   const [agentHealth, setAgentHealth] = useState<AgentHealth | null>(null)
 
-  // Derive smart account address when wallet address changes
+  const refreshSmartAccountBalance = useCallback(async (): Promise<number | null> => {
+    if (!smartAccountAddress) return null
+    try {
+      const { formatted } = await getUSDCBalance(smartAccountAddress)
+      setSmartAccountUSDCBalance(formatted)
+      return formatted
+    } catch (err) {
+      console.warn("Failed to query smart account USDC balance:", err)
+      return null
+    }
+  }, [smartAccountAddress])
+
+  // Derive smart account address and fetch USDC balance when wallet address changes
   useEffect(() => {
     if (!walletAddress) return
 
@@ -105,6 +120,9 @@ export function useRegent() {
         setSmartAccountAddress(sa.address)
         const deployed = await sa.isDeployed()
         if (active) setIsSmartAccountDeployed(deployed)
+
+        const { formatted } = await getUSDCBalance(sa.address)
+        if (active) setSmartAccountUSDCBalance(formatted)
       })
       .catch((err) => {
         console.warn("Failed to compute smart account address:", err)
@@ -115,6 +133,17 @@ export function useRegent() {
     }
   }, [walletAddress])
 
+  const fundSmartAccount = useCallback(
+    async (amountUSDC: number): Promise<Hex> => {
+      if (!walletAddress) throw new Error("Wallet not connected")
+      const sa = smartAccountAddress ?? (await createMetaMaskSmartAccount(walletAddress)).address
+      const txHash = await transferUSDCToSmartAccount(walletAddress, sa, amountUSDC)
+      await refreshSmartAccountBalance()
+      return txHash
+    },
+    [refreshSmartAccountBalance, smartAccountAddress, walletAddress],
+  )
+
   const activeSmartAccountAddress = walletAddress ? smartAccountAddress : null
   const activeSmartAccountDeployed = walletAddress ? isSmartAccountDeployed : false
 
@@ -123,6 +152,11 @@ export function useRegent() {
     const cleanup = setupWalletListeners(
       (newAccount) => {
         setWalletAddress(newAccount)
+        if (!newAccount) {
+          setSmartAccountAddress(null)
+          setIsSmartAccountDeployed(false)
+          setSmartAccountUSDCBalance(null)
+        }
       },
       () => {
         // Chain changed
@@ -170,6 +204,7 @@ export function useRegent() {
     setWalletAddress(null)
     setSmartAccountAddress(null)
     setIsSmartAccountDeployed(false)
+    setSmartAccountUSDCBalance(null)
   }, [])
 
   const create = useCallback(
@@ -426,14 +461,30 @@ export function useRegent() {
           await revokeMandateOnChain(mandate.onChainId, walletAddress).catch((err) => {
             console.warn("Failed to revoke mandate on-chain:", err)
           })
-          addActivity(mandateId, "mandate_revoked", "On-chain mandate revoked on RegentMandate.")
+          addActivity(
+            mandateId,
+            "mandate_revoked",
+            "On-chain mandate registry status set to Revoked on RegentMandate.",
+          )
         }
 
         if (mandate.delegation) {
-          await disableDelegationOnChain(mandate.delegation as Delegation, walletAddress).catch((err) => {
+          const res = await disableDelegationOnChain(
+            mandate.delegation as Delegation,
+            walletAddress,
+          ).catch((err) => {
             console.warn("Failed to disable delegation on-chain:", err)
+            return null
           })
-          addActivity(mandateId, "mandate_revoked", "ERC-7710 delegation disabled via DelegationManager.")
+          if (res?.disabledOnChain) {
+            addActivity(
+              mandateId,
+              "mandate_revoked",
+              "ERC-7710 delegation disabled via Smart Account UserOp in DelegationManager.",
+            )
+          } else if (res?.message) {
+            addActivity(mandateId, "mandate_revoked", res.message)
+          }
         }
 
         fetch("/api/mandates", {
@@ -483,6 +534,9 @@ export function useRegent() {
     walletAddress,
     smartAccountAddress: activeSmartAccountAddress,
     isSmartAccountDeployed: activeSmartAccountDeployed,
+    smartAccountUSDCBalance,
+    refreshSmartAccountBalance,
+    fundSmartAccount,
     isOnChain: isOnChainEnabled(),
     mode,
     mandates,
