@@ -184,14 +184,14 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
                     min={1}
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
-                    className="tnum w-full rounded-l-xl bg-transparent px-3.5 py-2.5 font-mono text-sm text-ink focus:outline-none"
+                    className="tnum w-full min-w-0 rounded-l-xl bg-transparent px-3.5 py-2.5 font-mono text-sm text-ink focus:outline-none"
                   />
                   <input
                     type="text"
                     aria-label="Source asset"
                     value={sourceAsset}
                     onChange={(e) => setSourceAsset(e.target.value.toUpperCase())}
-                    className="w-22 rounded-r-xl border-l border-edge bg-transparent px-3 py-2.5 font-mono text-sm text-muted uppercase focus:outline-none"
+                    className="w-20 shrink-0 rounded-r-xl border-l border-edge bg-transparent px-2.5 py-2.5 font-mono text-sm text-muted uppercase focus:outline-none sm:w-22 sm:px-3"
                   />
                 </div>
                 {!(budgetNumber > 0) && budget !== "" && (

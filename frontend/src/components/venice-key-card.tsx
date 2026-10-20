@@ -35,7 +35,7 @@ export function VeniceKeyCard() {
           placeholder="sk-..."
           autoComplete="off"
           aria-label="Venice API key"
-          className="w-full rounded-xl border border-edge bg-panel/50 px-3.5 py-2 font-mono text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-ink"
+          className="w-full min-w-0 rounded-xl border border-edge bg-panel/50 px-3.5 py-2 font-mono text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-ink"
         />
         <button
           type="button"

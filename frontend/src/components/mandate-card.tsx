@@ -40,11 +40,11 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
       </div>
 
       <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-edge bg-edge lg:grid-cols-4">
-        <div className="bg-panel p-4">
+        <div className="bg-panel p-3.5 sm:p-4 min-w-0 overflow-hidden">
           <dt className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted uppercase">
-            <Gauge className="h-3 w-3 text-ink" aria-hidden="true" /> Budget
+            <Gauge className="h-3 w-3 text-ink shrink-0" aria-hidden="true" /> Budget
           </dt>
-          <dd className="tnum mt-2 font-mono text-lg font-medium text-ink">
+          <dd className="tnum mt-2 font-mono text-base sm:text-lg font-medium text-ink truncate">
             {formatAmount(mandate.budget)} <span className="text-xs text-muted">{mandate.sourceAsset}</span>
           </dd>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas" role="presentation">
@@ -53,35 +53,35 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
               style={{ width: `${spentPct}%` }}
             />
           </div>
-          <p className="tnum mt-1.5 font-mono text-[11px] text-muted">
+          <p className="tnum mt-1.5 font-mono text-[11px] text-muted truncate">
             {formatAmount(mandate.spent)} spent
           </p>
         </div>
 
-        <div className="bg-panel p-4">
+        <div className="bg-panel p-3.5 sm:p-4 min-w-0 overflow-hidden">
           <dt className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted uppercase">
-            <Gauge className="h-3 w-3 text-ink" aria-hidden="true" /> Max slippage
+            <Gauge className="h-3 w-3 text-ink shrink-0" aria-hidden="true" /> Max slippage
           </dt>
-          <dd className="tnum mt-2 font-mono text-lg font-medium text-ink">{formatPercent(mandate.maxSlippage)}</dd>
-          <p className="mt-1.5 text-[11px] text-muted">Hard ceiling per route</p>
+          <dd className="tnum mt-2 font-mono text-base sm:text-lg font-medium text-ink truncate">{formatPercent(mandate.maxSlippage)}</dd>
+          <p className="mt-1.5 text-[11px] text-muted truncate">Hard ceiling per route</p>
         </div>
 
-        <div className="bg-panel p-4">
+        <div className="bg-panel p-3.5 sm:p-4 min-w-0 overflow-hidden">
           <dt className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted uppercase">
-            <Clock className="h-3 w-3 text-ink" aria-hidden="true" /> Expiry
+            <Clock className="h-3 w-3 text-ink shrink-0" aria-hidden="true" /> Expiry
           </dt>
-          <dd className="tnum mt-2 font-mono text-lg font-medium text-ink">{formatExpiry(mandate.expiry)}</dd>
-          <p className="mt-1.5 text-[11px] text-muted">Authority ends automatically</p>
+          <dd className="tnum mt-2 font-mono text-base sm:text-lg font-medium text-ink truncate">{formatExpiry(mandate.expiry)}</dd>
+          <p className="mt-1.5 text-[11px] text-muted truncate">Authority ends automatically</p>
         </div>
 
-        <div className="bg-panel p-4">
+        <div className="bg-panel p-3.5 sm:p-4 min-w-0 overflow-hidden">
           <dt className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted uppercase">
-            <FileSignature className="h-3 w-3 text-ink" aria-hidden="true" /> Delegation
+            <FileSignature className="h-3 w-3 text-ink shrink-0" aria-hidden="true" /> Delegation
           </dt>
-          <dd className="tnum mt-2 font-mono text-lg font-medium text-ink">
+          <dd className="tnum mt-2 font-mono text-base sm:text-lg font-medium text-ink truncate">
             {mandate.delegationHash ? truncateMiddle(mandate.delegationHash, 8, 6) : "—"}
           </dd>
-          <p className="mt-1.5 text-[11px] text-muted">
+          <p className="mt-1.5 text-[11px] text-muted truncate">
             {mandate.delegationHash ? "EIP-712 signature" : "Simulated authorization"}
           </p>
         </div>

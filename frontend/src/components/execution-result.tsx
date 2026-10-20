@@ -24,23 +24,23 @@ export function ExecutionResultPanel({ mandate, result }: { mandate: Mandate; re
       {result.success ? (
         <>
           <dl className="mt-4 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-edge bg-edge">
-            <div className="bg-panel p-3.5">
-              <dt className="text-[11px] tracking-wide text-muted uppercase">Spent</dt>
-              <dd className="tnum mt-1 font-mono text-base text-ink">
+            <div className="bg-panel p-2.5 sm:p-3.5 min-w-0 overflow-hidden">
+              <dt className="text-[11px] tracking-wide text-muted uppercase truncate">Spent</dt>
+              <dd className="tnum mt-1 font-mono text-sm sm:text-base text-ink truncate">
                 {formatAmount(result.spentAmount)}{" "}
                 <span className="text-xs text-muted">{mandate.sourceAsset}</span>
               </dd>
             </div>
-            <div className="bg-panel p-3.5">
-              <dt className="text-[11px] tracking-wide text-muted uppercase">Received</dt>
-              <dd className="tnum mt-1 font-mono text-base text-ink">
+            <div className="bg-panel p-2.5 sm:p-3.5 min-w-0 overflow-hidden">
+              <dt className="text-[11px] tracking-wide text-muted uppercase truncate">Received</dt>
+              <dd className="tnum mt-1 font-mono text-sm sm:text-base text-ink truncate">
                 {formatAmount(result.receivedAmount)}{" "}
                 <span className="text-xs text-muted">{mandate.targetAsset}</span>
               </dd>
             </div>
-            <div className="bg-panel p-3.5">
-              <dt className="text-[11px] tracking-wide text-muted uppercase">Under budget</dt>
-              <dd className="tnum mt-1 font-mono text-base font-semibold text-positive">
+            <div className="bg-panel p-2.5 sm:p-3.5 min-w-0 overflow-hidden">
+              <dt className="text-[11px] tracking-wide text-muted uppercase truncate">Under budget</dt>
+              <dd className="tnum mt-1 font-mono text-sm sm:text-base font-semibold text-positive truncate">
                 {formatAmount(mandate.budget - result.spentAmount)}{" "}
                 <span className="text-xs">{mandate.sourceAsset}</span>
               </dd>

@@ -29,15 +29,15 @@ interface AppHeaderProps {
 export function AppHeader({ walletAddress, onConnect, health }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-canvas/85 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3">
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:gap-4 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-8">
           <Link
             href="/"
             className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
           >
             <Brandmark />
           </Link>
-          <nav className="flex items-center gap-1.5" aria-label="Application">
+          <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Application">
             <Link
               href="/dashboard"
               aria-label="Dashboard"

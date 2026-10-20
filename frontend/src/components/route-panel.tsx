@@ -59,7 +59,7 @@ export function RoutePanel({ mandate, decision }: { mandate: Mandate; decision: 
                     {mandate.targetAsset}
                   </span>
                 </div>
-                <div className="tnum mt-2 flex gap-4 font-mono text-[11px] text-muted">
+                <div className="tnum mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted">
                   <span className={slippageBreach ? "font-semibold text-negative" : ""}>
                     slip {formatPercent(route.slippage)}
                   </span>
