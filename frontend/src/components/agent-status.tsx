@@ -10,8 +10,8 @@ const LABELS: Record<string, string> = {
 export function AgentStatus({ health }: { health: AgentHealth | null }) {
   if (!health) {
     return (
-      <span className="inline-flex h-10 items-center gap-2 rounded-full border border-edge px-4 text-xs text-dim">
-        <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-dim" aria-hidden="true" />
+      <span className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-surface px-3.5 text-xs text-muted shadow-2xs">
+        <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-muted" aria-hidden="true" />
         Agent…
       </span>
     )
@@ -20,7 +20,7 @@ export function AgentStatus({ health }: { health: AgentHealth | null }) {
   const online = health.ok
   return (
     <span
-      className="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-surface px-4 text-xs text-fog"
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-surface px-3.5 text-xs text-ink shadow-2xs"
       title={
         online
           ? `Agent service online — intelligence: ${LABELS[health.mode.intelligence]}, execution: ${LABELS[health.mode.execution]}`

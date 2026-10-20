@@ -12,17 +12,17 @@ const SOURCE_LABELS: Record<AgentDecision["source"], string> = {
 
 export function RoutePanel({ mandate, decision }: { mandate: Mandate; decision: AgentDecision }) {
   return (
-    <section aria-label="Route comparison" className="rounded-2xl border border-edge bg-surface">
+    <section aria-label="Route comparison" className="rounded-2xl border border-edge bg-surface shadow-xs">
       <header className="flex items-center justify-between border-b border-edge px-5 py-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-cream">
-          <RouteIcon className="h-4 w-4 text-brass" aria-hidden="true" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <RouteIcon className="h-4 w-4 text-ink" aria-hidden="true" />
           Route comparison
         </h3>
-        <span className="text-[11px] tracking-wide text-dim uppercase">{decision.source}</span>
+        <span className="font-mono text-[11px] tracking-wide text-muted uppercase">{decision.source}</span>
       </header>
 
       <div className="p-5">
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {decision.allRoutes.map((route) => {
             const selected = route.dex === decision.selectedRoute?.dex
             const slippageBreach = route.slippage > mandate.maxSlippage
@@ -31,35 +31,36 @@ export function RoutePanel({ mandate, decision }: { mandate: Mandate; decision: 
             return (
               <li
                 key={route.dex}
-                className={`rounded-xl border p-3.5 ${
+                className={`rounded-xl border p-3.5 transition-colors ${
                   selected
-                    ? "border-brass/40 bg-brass-faint"
+                    ? "border-ink bg-panel/70 shadow-xs"
                     : breached
-                      ? "border-edge opacity-55"
-                      : "border-edge bg-raised"
+                      ? "border-edge bg-panel/20 opacity-55"
+                      : "border-edge bg-surface"
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-semibold text-cream">{route.dex}</span>
+                    <span className="text-sm font-semibold text-ink">{route.dex}</span>
                     {selected && (
-                      <span className="rounded-full bg-brass px-2 py-0.5 text-[10px] font-bold tracking-wide text-ink uppercase">
+                      <span className="rounded-full bg-lime px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-ink uppercase shadow-2xs">
                         Selected
                       </span>
                     )}
                     {breached && (
-                      <span className="text-[10px] tracking-wide text-negative uppercase">
-                        {budgetBreach ? "over budget" : "over slippage ceiling"}
+                      <span className="font-mono text-[10px] tracking-wide text-negative uppercase">
+                        {budgetBreach ? "over budget" : "over slippage limit"}
                       </span>
                     )}
                   </div>
-                  <span className="tnum font-mono text-xs text-fog">
+                  <span className="tnum font-mono text-xs text-muted">
                     {formatAmount(route.inputAmount)} {mandate.sourceAsset} →{" "}
-                    <span className="text-cream">{formatAmount(route.outputAmount)}</span> {mandate.targetAsset}
+                    <span className="font-semibold text-ink">{formatAmount(route.outputAmount)}</span>{" "}
+                    {mandate.targetAsset}
                   </span>
                 </div>
-                <div className="tnum mt-2 flex gap-4 font-mono text-[11px] text-fog">
-                  <span className={slippageBreach ? "text-negative" : ""}>
+                <div className="tnum mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted">
+                  <span className={slippageBreach ? "font-semibold text-negative" : ""}>
                     slip {formatPercent(route.slippage)}
                   </span>
                   <span>fee {formatPercent(route.fee)}</span>
@@ -72,9 +73,9 @@ export function RoutePanel({ mandate, decision }: { mandate: Mandate; decision: 
           })}
         </ul>
 
-        <figure className="mt-4 border-l-2 border-brass/50 pl-4">
-          <blockquote className="text-sm leading-relaxed text-fog">{decision.reasoning}</blockquote>
-          <figcaption className="mt-2 text-[11px] tracking-wide text-dim uppercase">
+        <figure className="mt-5 border-l-2 border-ink pl-4">
+          <blockquote className="text-xs leading-relaxed text-ink/80 italic">{decision.reasoning}</blockquote>
+          <figcaption className="mt-2 font-mono text-[10px] tracking-wider text-muted uppercase">
             {SOURCE_LABELS[decision.source]}
           </figcaption>
         </figure>

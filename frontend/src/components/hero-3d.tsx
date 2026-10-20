@@ -77,8 +77,9 @@ export function Hero3D() {
     if (!ctx) return
 
     const styles = getComputedStyle(document.documentElement)
-    const brass = styles.getPropertyValue("--color-brass").trim() || "#c9a35e"
-    const brassBright = styles.getPropertyValue("--color-brass-bright").trim() || "#e2c280"
+    const lime = styles.getPropertyValue("--color-lime").trim() || "rgb(227, 232, 42)"
+    const pureWhite = styles.getPropertyValue("--color-pure-white").trim() || "rgb(255, 255, 255)"
+    const glowLime = styles.getPropertyValue("--color-hero-glow-lime").trim() || "rgba(227, 232, 42, 0.4)"
 
     const sphere = buildSphere()
     const stars = Array.from({ length: 110 }, () => {
@@ -136,17 +137,17 @@ export function Hero3D() {
       // stars
       for (const star of stars) {
         const s = toScreen(star)
-        const alpha = 0.1 + 0.16 * ((star.z + 4) / 8)
-        ctx.fillStyle = `rgba(236, 230, 217, ${alpha.toFixed(3)})`
+        const alpha = 0.12 + 0.22 * ((star.z + 4) / 8)
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`
         ctx.beginPath()
         ctx.arc(s.x, s.y, star.size * s.f * 0.7, 0, TAU)
         ctx.fill()
       }
 
       // core glow
-      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.5)
-      glow.addColorStop(0, "rgba(201, 163, 94, 0.16)")
-      glow.addColorStop(1, "rgba(201, 163, 94, 0)")
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.6)
+      glow.addColorStop(0, glowLime)
+      glow.addColorStop(1, "rgba(227, 232, 42, 0)")
       ctx.fillStyle = glow
       ctx.fillRect(cx - scale * 1.6, cy - scale * 1.6, scale * 3.2, scale * 3.2)
 
@@ -157,7 +158,7 @@ export function Hero3D() {
         for (let i = 1; i < line.length; i++) {
           const cur = toScreen(line[i])
           const depth = (prev.z + cur.z) / 2
-          ctx.strokeStyle = `rgba(236, 230, 217, ${(0.035 + 0.075 * ((depth + 1) / 2)).toFixed(3)})`
+          ctx.strokeStyle = `rgba(255, 255, 255, ${(0.04 + 0.12 * ((depth + 1) / 2)).toFixed(3)})`
           ctx.beginPath()
           ctx.moveTo(prev.x, prev.y)
           ctx.lineTo(cur.x, cur.y)
@@ -174,7 +175,7 @@ export function Hero3D() {
           if (i === 0) ctx.moveTo(s.x, s.y)
           else ctx.lineTo(s.x, s.y)
         }
-        ctx.strokeStyle = "rgba(201, 163, 94, 0.22)"
+        ctx.strokeStyle = "rgba(227, 232, 42, 0.32)"
         ctx.lineWidth = 1
         ctx.stroke()
 
@@ -184,8 +185,8 @@ export function Hero3D() {
           const fade = 1 - i / 13
           ctx.fillStyle =
             i === 0
-              ? brassBright
-              : `rgba(201, 163, 94, ${(0.5 * fade * fade).toFixed(3)})`
+              ? lime
+              : `rgba(227, 232, 42, ${(0.6 * fade * fade).toFixed(3)})`
           ctx.beginPath()
           ctx.arc(s.x, s.y, (i === 0 ? 2.6 : 1.6 * fade) * s.f, 0, TAU)
           ctx.fill()
@@ -194,9 +195,9 @@ export function Hero3D() {
 
       // core
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.16)
-      core.addColorStop(0, brassBright)
-      core.addColorStop(0.55, brass)
-      core.addColorStop(1, "rgba(201, 163, 94, 0)")
+      core.addColorStop(0, pureWhite)
+      core.addColorStop(0.4, lime)
+      core.addColorStop(1, "rgba(227, 232, 42, 0)")
       ctx.fillStyle = core
       ctx.beginPath()
       ctx.arc(cx, cy, scale * 0.16, 0, TAU)
