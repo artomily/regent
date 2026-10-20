@@ -24,6 +24,15 @@
   --color-negative: #DC2626;
   --color-info: #2563EB;
 
+  --color-pure-white: #FFFFFF;
+  --color-hero-bg: #222119;
+  --color-hero-shade: #12120F;
+  --color-hero-amber: #E2B84D;
+  --color-hero-sun: #FDF3A4;
+  --color-hero-glow-lime: rgba(227, 232, 42, 0.68);
+  --color-hero-glow-sun: rgba(253, 243, 164, 0.58);
+  --color-hero-glow-amber: rgba(226, 184, 77, 0.45);
+
   --font-sans: var(--font-dm-sans), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
   --font-display: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;

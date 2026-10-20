@@ -27,8 +27,14 @@ Tokens live in `frontend/app/globals.css` under `@theme`. Use semantic utilities
 | `positive` | `#166534` | success / completed (paired with a label) |
 | `negative` | `#DC2626` | errors / rejected / revoked |
 | `info` | `#2563EB` | in-progress / executing states |
+| `pure-white` | `#FFFFFF` | high-contrast text and clean button fills |
+| `hero-bg` | `#222119` | warm olive-amber hero foundation |
+| `hero-shade` | `#12120F` | deep dark base behind hero body text for >= 4.5:1 contrast |
+| `hero-amber` | `#E2B84D` | warm amber mid-tone bloom |
+| `hero-sun` | `#FDF3A4` | luminous soft sunlit bloom |
+| `hero-glow-lime` | `rgba(227, 232, 42, 0.68)` | vibrant chartreuse/lime radial light bloom |
 
-Rule: Lime (`#E3E82A`) is used sparingly for high-visibility progress indicators and status pills. Ink (`#111110`) anchors primary actions.
+Rule: Lime (`#E3E82A`) is used sparingly for high-visibility progress indicators and status pills. Ink (`#111110`) anchors primary actions. Hero panels combine warm amber and lime blooms with a deeper base (`hero-shade`) ensuring >= 4.5:1 text contrast for body copy.
 
 ## Typography
 

@@ -116,16 +116,17 @@ const TRUST_LAYERS = [
 export default function Landing() {
   return (
     <div className="min-h-screen bg-canvas text-ink">
-      {/* ── HERO: Full-bleed warm gradient panel modeled on Wellmo ── */}
-      <section className="relative min-h-[94svh] w-full overflow-hidden bg-[#181815]">
+      {/* ── HERO: Full-bleed warm luminous gradient panel modeled on Wellmo ── */}
+      <section className="relative min-h-[94svh] w-full overflow-hidden bg-hero-bg">
         {/* CSS Gradient mesh background */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `
-              radial-gradient(ellipse 90% 65% at 75% 15%, rgba(227, 232, 42, 0.45) 0%, transparent 65%),
-              radial-gradient(ellipse 70% 55% at 15% 20%, rgba(240, 195, 95, 0.35) 0%, transparent 60%),
-              radial-gradient(circle at 50% 90%, #111110 0%, #151513 50%, #1c1c19 100%)
+              radial-gradient(ellipse 95% 75% at 80% 10%, var(--color-hero-glow-lime) 0%, transparent 65%),
+              radial-gradient(ellipse 85% 65% at 15% 15%, var(--color-hero-glow-sun) 0%, transparent 55%),
+              radial-gradient(ellipse 70% 50% at 50% 28%, var(--color-hero-glow-amber) 0%, transparent 60%),
+              radial-gradient(circle at 50% 100%, var(--color-hero-shade) 0%, var(--color-hero-bg) 65%, var(--color-hero-amber) 130%)
             `,
           }}
           aria-hidden="true"
@@ -137,10 +138,10 @@ export default function Landing() {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          <circle cx="35%" cy="30%" r="280" fill="none" stroke="#E3E82A" strokeWidth="0.8" strokeDasharray="3 3" />
-          <circle cx="35%" cy="30%" r="460" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
-          <circle cx="35%" cy="30%" r="680" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
-          <line x1="35%" y1="0" x2="35%" y2="100%" stroke="#FFFFFF" strokeWidth="0.5" strokeDasharray="3 6" />
+          <circle cx="35%" cy="30%" r="280" fill="none" stroke="var(--color-lime)" strokeWidth="0.8" strokeDasharray="3 3" />
+          <circle cx="35%" cy="30%" r="460" fill="none" stroke="var(--color-pure-white)" strokeWidth="0.5" />
+          <circle cx="35%" cy="30%" r="680" fill="none" stroke="var(--color-pure-white)" strokeWidth="0.5" />
+          <line x1="35%" y1="0" x2="35%" y2="100%" stroke="var(--color-pure-white)" strokeWidth="0.5" strokeDasharray="3 6" />
         </svg>
 
         {/* Ambient 3D canvas orb */}
@@ -257,14 +258,14 @@ export default function Landing() {
           </div>
 
           {/* Bottom Hero headline and action pills */}
-          <div className="max-w-3xl">
+          <div className="relative max-w-3xl rounded-3xl p-5 sm:p-8 bg-gradient-to-t from-hero-shade/85 via-hero-shade/40 to-transparent backdrop-blur-xs">
             <h1 className="animate-rise font-display text-4xl font-light tracking-[-0.03em] text-white sm:text-6xl md:text-7xl">
               You give the mandate.
               <br />
               <span className="font-normal text-white">Regent executes.</span>
             </h1>
 
-            <p className="animate-rise mt-5 max-w-xl text-base leading-relaxed text-white/80 [animation-delay:120ms] sm:text-lg">
+            <p className="animate-rise mt-5 max-w-xl text-base font-normal leading-relaxed text-white/90 [animation-delay:120ms] sm:text-lg">
               An AI agent that acts on your behalf inside hard, signed boundaries — budget, slippage,
               expiry. Never beyond. Built on MetaMask Smart Accounts, Venice AI, and the 1Shot relayer.
             </p>
@@ -292,18 +293,12 @@ export default function Landing() {
       {/* ── SECTION 01: Problem Statement & The Three Hard Clauses ── */}
       <section className="border-t border-edge bg-canvas">
         {/* Hairline sub-header divider */}
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-12 border-b border-edge">
-          <div className="col-span-2 border-r border-edge p-4 sm:p-6 font-mono text-xs text-muted">
-            (01)
-          </div>
-          <div className="col-span-8 p-4 sm:p-6 text-center">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-lime text-ink shadow-xs">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="col-span-2 border-l border-edge p-4 sm:p-6 text-right font-mono text-xs text-muted">
-            ©2026
-          </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-muted">(01)</span>
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-lime text-ink shadow-xs">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="font-mono text-xs text-muted">©2026</span>
         </div>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
@@ -374,8 +369,8 @@ export default function Landing() {
           </div>
 
           {/* Solidity Revert Preview */}
-          <div className="mt-8 overflow-hidden rounded-2xl border border-edge bg-surface p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-edge pb-3">
+          <div className="mt-8 overflow-hidden rounded-2xl border border-edge bg-surface p-4 sm:p-6 shadow-xs max-w-full">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge pb-3">
               <span className="font-mono text-[11px] tracking-wider text-muted uppercase">
                 contract/src/RegentMandate.sol — on-chain boundary enforcement
               </span>
@@ -383,7 +378,7 @@ export default function Landing() {
                 Base Sepolia
               </span>
             </div>
-            <pre className="tnum mt-4 overflow-x-auto font-mono text-xs leading-relaxed text-ink/80">
+            <pre className="tnum mt-4 overflow-x-auto font-mono text-xs leading-relaxed text-ink/80 max-w-full">
               <code>{`if (slippageBps > m.maxSlippageBps) revert `}<span className="font-semibold text-negative">SlippageExceeded</span>{`(m.maxSlippageBps, slippageBps);
 
 uint256 remaining = m.budget - m.spent;
@@ -397,16 +392,10 @@ if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-ne
 
       {/* ── SECTION 02: How It Works (Chain of Authority) ── */}
       <section className="border-t border-edge bg-panel/30">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-12 border-b border-edge">
-          <div className="col-span-2 border-r border-edge p-4 sm:p-6 font-mono text-xs text-muted">
-            (02)
-          </div>
-          <div className="col-span-8 p-4 sm:p-6 text-center font-mono text-xs tracking-wider text-muted uppercase">
-            Chain of Authority
-          </div>
-          <div className="col-span-2 border-l border-edge p-4 sm:p-6 text-right font-mono text-xs text-muted">
-            WORKFLOW
-          </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-muted">(02)</span>
+          <span className="font-mono text-xs tracking-wider text-muted uppercase">Chain of Authority</span>
+          <span className="font-mono text-xs text-muted">WORKFLOW</span>
         </div>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
@@ -446,16 +435,10 @@ if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-ne
 
       {/* ── SECTION 03: Metrics Row ── */}
       <section className="border-t border-edge bg-canvas">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-12 border-b border-edge">
-          <div className="col-span-2 border-r border-edge p-4 sm:p-6 font-mono text-xs text-muted">
-            (03)
-          </div>
-          <div className="col-span-8 p-4 sm:p-6 text-center font-mono text-xs tracking-wider text-muted uppercase">
-            System Metrics
-          </div>
-          <div className="col-span-2 border-l border-edge p-4 sm:p-6 text-right font-mono text-xs text-muted">
-            INTEGRITY
-          </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-muted">(03)</span>
+          <span className="font-mono text-xs tracking-wider text-muted uppercase">System Metrics</span>
+          <span className="font-mono text-xs text-muted">INTEGRITY</span>
         </div>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
@@ -477,16 +460,10 @@ if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-ne
 
       {/* ── SECTION 04: Trust Model (Defense in Depth) ── */}
       <section className="border-t border-edge bg-panel/20">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-12 border-b border-edge">
-          <div className="col-span-2 border-r border-edge p-4 sm:p-6 font-mono text-xs text-muted">
-            (04)
-          </div>
-          <div className="col-span-8 p-4 sm:p-6 text-center font-mono text-xs tracking-wider text-muted uppercase">
-            Defense in Depth
-          </div>
-          <div className="col-span-2 border-l border-edge p-4 sm:p-6 text-right font-mono text-xs text-muted">
-            TRUST MODEL
-          </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-muted">(04)</span>
+          <span className="font-mono text-xs tracking-wider text-muted uppercase">Defense in Depth</span>
+          <span className="font-mono text-xs text-muted">TRUST MODEL</span>
         </div>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
@@ -523,11 +500,11 @@ if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-ne
           </div>
 
           {/* Powered by row */}
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-edge bg-surface px-6 py-5">
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-edge bg-surface p-4 sm:px-6 sm:py-5">
             <span className="font-mono text-xs font-semibold tracking-wider text-muted uppercase">
               POWERED BY
             </span>
-            <div className="flex flex-wrap items-center gap-6 sm:gap-8 font-mono text-xs text-ink">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-8 font-mono text-xs text-ink">
               <span className="flex items-center gap-1.5 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-lime" />
                 MetaMask Smart Accounts
@@ -551,16 +528,10 @@ if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-ne
 
       {/* ── SECTION 05: Final CTA ── */}
       <section className="border-t border-edge bg-canvas">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-12 border-b border-edge">
-          <div className="col-span-2 border-r border-edge p-4 sm:p-6 font-mono text-xs text-muted">
-            (05)
-          </div>
-          <div className="col-span-8 p-4 sm:p-6 text-center font-mono text-xs tracking-wider text-muted uppercase">
-            Get Started
-          </div>
-          <div className="col-span-2 border-l border-edge p-4 sm:p-6 text-right font-mono text-xs text-muted">
-            LAUNCH
-          </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-muted">(05)</span>
+          <span className="font-mono text-xs tracking-wider text-muted uppercase">Get Started</span>
+          <span className="font-mono text-xs text-muted">LAUNCH</span>
         </div>
 
         <div className="mx-auto w-full max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">

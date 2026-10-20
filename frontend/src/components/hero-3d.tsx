@@ -76,6 +76,11 @@ export function Hero3D() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    const styles = getComputedStyle(document.documentElement)
+    const lime = styles.getPropertyValue("--color-lime").trim() || "rgb(227, 232, 42)"
+    const pureWhite = styles.getPropertyValue("--color-pure-white").trim() || "rgb(255, 255, 255)"
+    const glowLime = styles.getPropertyValue("--color-hero-glow-lime").trim() || "rgba(227, 232, 42, 0.4)"
+
     const sphere = buildSphere()
     const stars = Array.from({ length: 110 }, () => {
       const a = Math.random() * TAU
@@ -141,7 +146,7 @@ export function Hero3D() {
 
       // core glow
       const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.6)
-      glow.addColorStop(0, "rgba(227, 232, 42, 0.28)")
+      glow.addColorStop(0, glowLime)
       glow.addColorStop(1, "rgba(227, 232, 42, 0)")
       ctx.fillStyle = glow
       ctx.fillRect(cx - scale * 1.6, cy - scale * 1.6, scale * 3.2, scale * 3.2)
@@ -180,7 +185,7 @@ export function Hero3D() {
           const fade = 1 - i / 13
           ctx.fillStyle =
             i === 0
-              ? "#E3E82A"
+              ? lime
               : `rgba(227, 232, 42, ${(0.6 * fade * fade).toFixed(3)})`
           ctx.beginPath()
           ctx.arc(s.x, s.y, (i === 0 ? 2.6 : 1.6 * fade) * s.f, 0, TAU)
@@ -190,8 +195,8 @@ export function Hero3D() {
 
       // core
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.16)
-      core.addColorStop(0, "#FFFFFF")
-      core.addColorStop(0.4, "#E3E82A")
+      core.addColorStop(0, pureWhite)
+      core.addColorStop(0.4, lime)
       core.addColorStop(1, "rgba(227, 232, 42, 0)")
       ctx.fillStyle = core
       ctx.beginPath()
