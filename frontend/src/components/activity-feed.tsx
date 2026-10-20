@@ -44,14 +44,14 @@ export function ActivityFeed({ events, isRunning }: { events: ActivityEvent[]; i
   }, [events.length])
 
   return (
-    <section aria-label="Agent activity" className="flex flex-col rounded-2xl border border-edge bg-surface">
+    <section aria-label="Agent activity" className="flex flex-col rounded-2xl border border-edge bg-surface shadow-xs">
       <header className="flex items-center justify-between border-b border-edge px-5 py-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-cream">
-          <Activity className="h-4 w-4 text-brass" aria-hidden="true" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Activity className="h-4 w-4 text-ink" aria-hidden="true" />
           Agent activity
         </h3>
         {isRunning && (
-          <span className="flex items-center gap-2 text-xs text-info">
+          <span className="flex items-center gap-2 text-xs font-medium text-info">
             <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-info" aria-hidden="true" />
             working
           </span>
@@ -60,7 +60,7 @@ export function ActivityFeed({ events, isRunning }: { events: ActivityEvent[]; i
 
       <div className="max-h-105 flex-1 overflow-y-auto p-5" role="log" aria-live="polite">
         {events.length === 0 ? (
-          <p className="py-10 text-center text-sm text-fog">
+          <p className="py-10 text-center text-xs text-muted">
             No activity yet. Authorize the mandate and activate Regent.
           </p>
         ) : (
@@ -76,12 +76,12 @@ export function ActivityFeed({ events, isRunning }: { events: ActivityEvent[]; i
                       aria-hidden="true"
                     />
                   )}
-                  <span className="z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-edge bg-raised">
-                    <Icon className="h-3 w-3 text-brass" aria-hidden="true" />
+                  <span className="z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-edge bg-panel">
+                    <Icon className="h-3 w-3 text-ink" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm break-words text-cream">{event.message}</p>
-                    <p className="tnum mt-0.5 font-mono text-[11px] text-dim">
+                    <p className="text-xs break-words text-ink leading-relaxed">{event.message}</p>
+                    <p className="tnum mt-0.5 font-mono text-[11px] text-muted">
                       {formatClock(event.timestamp)}
                       {typeof event.metadata?.source === "string" && (
                         <span className="ml-2 tracking-wide uppercase">via {event.metadata.source}</span>
