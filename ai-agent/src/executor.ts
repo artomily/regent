@@ -27,7 +27,6 @@ import {
   BASE_SEPOLIA_CHAIN_ID,
   EXECUTION_MODE,
   type ExecutionModeConfig,
-  LIVE_EXECUTION,
   MANDATE_CONTRACT,
   ONE_SHOT_RELAYER_URL,
   RPC_URL,
@@ -60,6 +59,7 @@ export interface CalldataBundle {
   executions: ExecutionStruct[]
   redeemCalldata: Hex
   delegationManagerAddress: Address
+  mandateContractAddress: Address
 }
 
 export function parseDelegation(raw: unknown): Delegation | null {
@@ -87,9 +87,23 @@ export function parseDelegation(raw: unknown): Delegation | null {
   }
 }
 
+export function resolveFeeTier(route: Route): number {
+  if (typeof route.feeTier === "number" && [100, 500, 3000, 10000].includes(route.feeTier)) {
+    return route.feeTier
+  }
+  if (typeof route.fee === "number") {
+    const computed = Math.round(route.fee * 10_000)
+    if ([100, 500, 3000, 10000].includes(computed)) {
+      return computed
+    }
+  }
+  return 3000
+}
+
 /**
  * Builds the swap calldata (approve + exactInputSingle on SwapRouter02)
- * plus RegentMandate.recordExecution, and encodes DelegationManager.redeemDelegations.
+ * for DelegationManager.redeemDelegations (exactly 2 executions: [approve, swap]),
+ * and builds RegentMandate.recordExecution calldata for separate agent execution.
  */
 export function buildExecutionCalldata(
   mandate: Mandate,
@@ -106,13 +120,12 @@ export function buildExecutionCalldata(
   const swapRouter = overrides?.swapRouter ?? UNISWAP_SWAP_ROUTER_02_BASE_SEPOLIA
   const usdc = overrides?.usdcAddress ?? BASE_SEPOLIA_USDC
   const weth = overrides?.wethAddress ?? BASE_SEPOLIA_WETH
-  const mandateContract = (overrides?.mandateContract ?? (MANDATE_CONTRACT as Address)) || ("0x0000000000000000000000000000000000000000" as Address)
+  const mandateContractAddress = (overrides?.mandateContract ?? (MANDATE_CONTRACT as Address)) || ("0x0000000000000000000000000000000000000000" as Address)
 
   const env = getSmartAccountsEnvironment(BASE_SEPOLIA_CHAIN_ID)
   const delegationManagerAddress = (overrides?.delegationManagerAddress ?? env.DelegationManager) as Address
 
   const spendAmount = parseUnits(String(route.inputAmount), 6)
-  const receivedAmount = parseUnits(String(route.outputAmount), 18)
   const slippageBps = Math.min(10_000, Math.max(0, Math.round(route.slippage * 100)))
 
   // 1. Approve USDC on SwapRouter02
@@ -126,6 +139,7 @@ export function buildExecutionCalldata(
   const recipient = (mandate.smartAccountAddress || mandate.delegatorAddress || delegation.delegator) as Address
   const minReceivedUnits = Math.max(0, route.outputAmount * (1 - route.slippage / 100))
   const amountOutMinimum = parseUnits(minReceivedUnits.toFixed(18), 18)
+  const fee = resolveFeeTier(route)
 
   const swapCalldata = encodeFunctionData({
     abi: SWAP_ROUTER_ABI,
@@ -134,7 +148,7 @@ export function buildExecutionCalldata(
       {
         tokenIn: usdc,
         tokenOut: weth,
-        fee: 3000,
+        fee,
         recipient,
         amountIn: spendAmount,
         amountOutMinimum,
@@ -143,32 +157,29 @@ export function buildExecutionCalldata(
     ],
   })
 
-  // 3. RegentMandate.recordExecution
+  // The redeem delegation batch: exactly [USDC.approve(router), router.exactInputSingle]
+  const executions: ExecutionStruct[] = [
+    createExecution({ target: usdc, value: 0n, callData: approveCalldata }),
+    createExecution({ target: swapRouter, value: 0n, callData: swapCalldata }),
+  ]
+
+  const redeemCalldata = contracts.DelegationManager.encode.redeemDelegations({
+    delegations: [[delegation]],
+    modes: [ExecutionMode.BatchDefault],
+    executions: [executions],
+  })
+
+  // 3. RegentMandate.recordExecution (executed separately by the agent EOA / relayer)
   const onChainIdHex: Hex = mandate.onChainId && mandate.onChainId.startsWith("0x") && mandate.onChainId.length === 66
     ? (mandate.onChainId as Hex)
-    : keccak256(stringToHex(mandate.id))
+    : ("0x0000000000000000000000000000000000000000000000000000000000000000" as Hex)
 
   const routeRef = keccak256(stringToHex(`${route.dex}:${mandate.id}:${Date.now()}`))
 
   const recordCalldata = encodeFunctionData({
     abi: REGENT_MANDATE_ABI,
     functionName: "recordExecution",
-    args: [onChainIdHex, spendAmount, receivedAmount, slippageBps, routeRef],
-  })
-
-  const executions: ExecutionStruct[] = [
-    createExecution({ target: usdc, value: 0n, callData: approveCalldata }),
-    createExecution({ target: swapRouter, value: 0n, callData: swapCalldata }),
-  ]
-
-  if (mandateContract && mandateContract !== "0x0000000000000000000000000000000000000000") {
-    executions.push(createExecution({ target: mandateContract, value: 0n, callData: recordCalldata }))
-  }
-
-  const redeemCalldata = contracts.DelegationManager.encode.redeemDelegations({
-    delegations: [[delegation]],
-    modes: [ExecutionMode.BatchDefault],
-    executions: [executions],
+    args: [onChainIdHex, spendAmount, amountOutMinimum, slippageBps, routeRef],
   })
 
   return {
@@ -179,6 +190,7 @@ export function buildExecutionCalldata(
     executions,
     redeemCalldata,
     delegationManagerAddress,
+    mandateContractAddress,
   }
 }
 
@@ -211,6 +223,7 @@ export function mapRevertError(error: unknown): string {
 
 export interface ExecuteRouteOptions {
   mode?: ExecutionModeConfig
+  mandateContract?: Address
   walletClient?: {
     sendTransaction: (args: { to: Address; data: Hex; value?: bigint }) => Promise<Hex>
   }
@@ -225,8 +238,8 @@ export interface ExecuteRouteOptions {
  * Execute the selected route within mandate boundaries.
  * Supports:
  * - "simulated": generates a deterministic/mock execution result
- * - "direct": agent EOA sends redeem tx directly, pays gas
- * - "relayer": 1Shot relayer submission with the real transactions array
+ * - "direct": agent EOA sends recordExecution first, then redeemDelegations
+ * - "relayer": 1Shot relayer submits recordExecution first, then redeemDelegations
  */
 export async function executeRoute(
   mandate: Mandate,
@@ -273,27 +286,49 @@ export async function executeRoute(
     return simulate(route)
   }
 
+  // Refuse execution if MANDATE_CONTRACT is configured but onChainId is missing or invalid
+  const mandateContractAddress = (options?.mandateContract ?? MANDATE_CONTRACT) as Address | undefined
+  const isMandateContractSet = Boolean(
+    mandateContractAddress &&
+    mandateContractAddress !== "0x0000000000000000000000000000000000000000",
+  )
+
+  if (isMandateContractSet) {
+    const isValidOnChainId = typeof mandate.onChainId === "string" && /^0x[0-9a-fA-F]{64}$/.test(mandate.onChainId)
+    if (!isValidOnChainId) {
+      logger.info("executor.boundary.refused", {
+        mandateId: mandate.id,
+        reason: "invalid_onchain_id",
+        onChainId: mandate.onChainId,
+      })
+      return failure(
+        "Refused: MANDATE_CONTRACT is configured but mandate.onChainId is missing or invalid (expected 32-byte hex)",
+        mode,
+      )
+    }
+  }
+
   const delegation = parseDelegation(mandate.delegation)
   if (!delegation) {
     return failure("Missing or invalid signed delegation in mandate for execution", mode)
   }
 
-  const bundle = buildExecutionCalldata(mandate, route, delegation)
+  const bundle = buildExecutionCalldata(mandate, route, delegation, {
+    mandateContract: mandateContractAddress,
+  })
   const rpcUrl = options?.rpcUrl ?? RPC_URL
 
   if (mode === "direct") {
     try {
+      let recordTxHash: Hex | undefined
       let txHash: Hex
 
-      if (options?.walletClient) {
-        txHash = await options.walletClient.sendTransaction({
-          to: bundle.delegationManagerAddress,
-          data: bundle.redeemCalldata,
-          value: 0n,
-        })
-      } else {
+      const sendTx = async (to: Address, data: Hex): Promise<Hex> => {
+        if (options?.walletClient) {
+          return options.walletClient.sendTransaction({ to, data, value: 0n })
+        }
         if (!AGENT_PRIVATE_KEY) {
-          return failure("AGENT_PRIVATE_KEY is required for direct execution mode", "direct")
+          throw new Error("AGENT_PRIVATE_KEY is required for direct execution mode")
         }
         const account = privateKeyToAccount(AGENT_PRIVATE_KEY as Hex)
         const walletClient = createWalletClient({
@@ -301,28 +336,41 @@ export async function executeRoute(
           chain: baseSepolia,
           transport: http(rpcUrl),
         })
-        txHash = await walletClient.sendTransaction({
+        return walletClient.sendTransaction({
           account,
-          to: bundle.delegationManagerAddress,
-          data: bundle.redeemCalldata,
+          to,
+          data,
           value: 0n,
         })
       }
 
-      const publicClient = options?.publicClient ?? createPublicClient({
-        chain: baseSepolia,
-        transport: http(rpcUrl),
-      })
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-      if (receipt.status !== "success") {
-        throw new Error(`Transaction reverted on-chain: ${receipt.transactionHash}`)
+      const waitForReceipt = async (hash: Hex) => {
+        const publicClient = options?.publicClient ?? createPublicClient({
+          chain: baseSepolia,
+          transport: http(rpcUrl),
+        })
+        const receipt = await publicClient.waitForTransactionReceipt({ hash })
+        if (receipt.status !== "success") {
+          throw new Error(`Transaction reverted on-chain: ${receipt.transactionHash}`)
+        }
+        return receipt
       }
+
+      // 1. Record execution on RegentMandate first (boundary check before funds move)
+      if (isMandateContractSet && bundle.mandateContractAddress) {
+        recordTxHash = await sendTx(bundle.mandateContractAddress, bundle.recordCalldata)
+        await waitForReceipt(recordTxHash)
+      }
+
+      // 2. Execute redeemDelegations
+      txHash = await sendTx(bundle.delegationManagerAddress, bundle.redeemCalldata)
+      await waitForReceipt(txHash)
 
       return {
         success: true,
-        transactionHash: receipt.transactionHash,
-        txHash: receipt.transactionHash,
+        transactionHash: txHash,
+        txHash,
+        recordTxHash,
         spentAmount: route.inputAmount,
         receivedAmount: route.outputAmount,
         feeAmount: route.fee,
@@ -340,54 +388,70 @@ export async function executeRoute(
   // Relayer mode (1Shot)
   try {
     const relayerUrl = options?.relayerUrl ?? ONE_SHOT_RELAYER_URL
-    const response = await fetch(relayerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "relayer_send7710Transaction",
-        params: {
-          chainId: String(BASE_SEPOLIA_CHAIN_ID),
-          transactions: [
-            {
-              to: bundle.delegationManagerAddress,
-              data: bundle.redeemCalldata,
-              value: "0x0",
+    let recordTxHash: string | undefined
+    let txHash: string | undefined
+    let taskId: string | undefined
+
+    const sendRelayerTx = async (to: Address, data: Hex): Promise<{ txHash?: string; taskId?: string }> => {
+      const response = await fetch(relayerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "relayer_send7710Transaction",
+          params: {
+            chainId: String(BASE_SEPOLIA_CHAIN_ID),
+            transactions: [
+              {
+                to,
+                data,
+                value: "0x0",
+              },
+            ],
+            metadata: {
+              mandateId: mandate.id,
+              mandateContract: bundle.mandateContractAddress,
+              delegationHash: mandate.delegationHash,
+              route: route.dex,
             },
-          ],
-          metadata: {
-            mandateId: mandate.id,
-            mandateContract: MANDATE_CONTRACT,
-            delegationHash: mandate.delegationHash,
-            route: route.dex,
           },
-        },
-      }),
-    })
+        }),
+      })
 
-    const data = (await response.json()) as {
-      result?: { transactionHash?: string; txHash?: string; taskId?: string }
-      error?: { message?: string }
-    }
-
-    if (data.error) throw new Error(data.error.message ?? "Relayer error")
-
-    const txHash = data.result?.transactionHash || data.result?.txHash
-    const taskId = data.result?.taskId
-
-    if (txHash && options?.publicClient) {
-      const receipt = await options.publicClient.waitForTransactionReceipt({ hash: txHash as Hex })
-      if (receipt.status !== "success") {
-        throw new Error(`Transaction reverted on-chain: ${receipt.transactionHash}`)
+      const resData = (await response.json()) as {
+        result?: { transactionHash?: string; txHash?: string; taskId?: string }
+        error?: { message?: string }
       }
+      if (resData.error) throw new Error(resData.error.message ?? "Relayer error")
+
+      const hash = resData.result?.transactionHash || resData.result?.txHash
+      if (hash && options?.publicClient) {
+        const receipt = await options.publicClient.waitForTransactionReceipt({ hash: hash as Hex })
+        if (receipt.status !== "success") {
+          throw new Error(`Transaction reverted on-chain: ${receipt.transactionHash}`)
+        }
+      }
+      return { txHash: hash, taskId: resData.result?.taskId }
     }
+
+    // 1. If MANDATE_CONTRACT configured, recordExecution first
+    if (isMandateContractSet && bundle.mandateContractAddress) {
+      const recordRes = await sendRelayerTx(bundle.mandateContractAddress, bundle.recordCalldata)
+      recordTxHash = recordRes.txHash
+    }
+
+    // 2. Then execute redeemDelegations
+    const redeemRes = await sendRelayerTx(bundle.delegationManagerAddress, bundle.redeemCalldata)
+    txHash = redeemRes.txHash
+    taskId = redeemRes.taskId
 
     return {
       success: true,
       transactionHash: txHash,
       txHash,
+      recordTxHash,
       taskId,
       spentAmount: route.inputAmount,
       receivedAmount: route.outputAmount,
@@ -410,6 +474,7 @@ function simulate(route: Route): ExecutionResult {
     success: true,
     transactionHash: hash,
     txHash: hash,
+    recordTxHash: undefined,
     taskId: randomUUID(),
     spentAmount: route.inputAmount,
     receivedAmount: route.outputAmount,
