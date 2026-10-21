@@ -61,6 +61,18 @@ Display sizes 3xl–7xl with tight leading and tracking (`tracking-[-0.03em]`); 
 - Live/working states: `animate-pulse-soft`
 - Everything gated by `prefers-reduced-motion` (the 3D canvas renders a static frame)
 
+## Dashboard Application Shell
+
+Modeled on modern light editorial SaaS aesthetics with warm sage panels and dark rail navigation:
+
+- **Vertical Icon Rail:** High-contrast dark ink rail (`bg-rail-ink`, `rounded-3xl`) anchoring primary views (Overview, Mandates, Activity, Routes, Agent, Settings) with bottom utility actions and a deterministic wallet identicon. Responsive fallback to compact bottom nav on viewport <768px.
+- **Editorial Headline with Inline Pills:** Expressive light display headline combining DM Sans with inline encapsulated status badges/pills (e.g. `[shield pill]`, `[sparkle pill]`).
+- **Segmented Capsule Progress:** Metric cards use vertical rounded capsule sequences (solid filled ink/dark capsules vs dashed outline empty capsules) to convey budget consumption and execution quotas at a glance.
+- **Luminous Lime Accent Card:** Highlighting high-urgency execution metrics with full-surface soft chartreuse (`bg-lime-card`), paired with ink typography.
+- **Warm Promo Tile:** Venice AI decision tile featuring warm amber/sun token gradient glows and high-contrast white pill action button.
+- **Capsule Bar Statistics:** Multi-series capsule-bar charting (solid ink for spent, lime for output/volume, and dashed outline capsules for inactive days) with floating percentage badges.
+- **Soft Sage Surface Tiles:** Neutral sage cards (`bg-panel-sage`, `rounded-3xl`) with generous padding, square icon containers, and upper-right diagonal action links.
+
 ## Voice
 
 Measured, declarative, a little ceremonial. Mandates are written like deeds ("§1 Budget ceiling", "Mandate of authority"). Key lines:
