@@ -34,18 +34,19 @@ export function MetricCards({
 }: MetricCardsProps) {
   // Card 1 calculations: Budget spent
   const spent = activeMandate?.spent ?? 0
-  const budget = activeMandate?.budget ?? (mandates.length > 0 ? mandates[0].budget : 500)
-  const currency = activeMandate?.sourceAsset ?? "USDC"
+  const budget = activeMandate?.budget ?? (mandates.length > 0 ? mandates[0].budget : 0)
+  const currency = activeMandate?.sourceAsset ?? (mandates.length > 0 ? mandates[0].sourceAsset : "USDC")
   const budgetPct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
   const budgetSegments = 8
-  const budgetFilled = Math.min(budgetSegments, Math.max(0, Math.round((budgetPct / 100) * budgetSegments)))
+  const budgetFilled = budget > 0 ? Math.min(budgetSegments, Math.max(0, Math.round((budgetPct / 100) * budgetSegments))) : 0
 
   // Card 2 calculations: Executions
   const completedExecutions = mandates.filter((m) => m.status === "completed").length
-  const totalLimit = Math.max(mandates.length, 5)
-  const execPct = totalLimit > 0 ? Math.min(100, Math.round((completedExecutions / totalLimit) * 100)) : 0
+  const totalMandates = mandates.length
+  const hasMandates = totalMandates > 0
+  const execPct = hasMandates ? Math.round((completedExecutions / totalMandates) * 100) : 0
   const execSegments = 8
-  const execFilled = Math.min(execSegments, Math.max(0, Math.round((execPct / 100) * execSegments)))
+  const execFilled = hasMandates ? Math.min(execSegments, Math.max(0, Math.round((execPct / 100) * execSegments))) : 0
 
   // Card 3 promo action logic
   const canExecute = activeMandate?.status === "active" && Boolean(decision?.selectedRoute) && !executionResult
@@ -86,14 +87,22 @@ export function MetricCards({
               <span className="tnum font-mono text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
                 {formatAmount(spent)}
               </span>
-              <span className="tnum font-mono text-sm text-muted">
-                / {formatAmount(budget)} {currency}
-              </span>
+              {budget > 0 ? (
+                <span className="tnum font-mono text-sm text-muted">
+                  / {formatAmount(budget)} {currency}
+                </span>
+              ) : (
+                <span className="tnum font-mono text-sm text-muted">
+                  {currency}
+                </span>
+              )}
             </div>
-            <span className="tnum inline-flex items-center gap-1 rounded-full border border-edge bg-pure-white px-2.5 py-0.5 font-mono text-xs font-semibold text-ink shadow-2xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-lime" aria-hidden="true" />
-              {budgetPct}%
-            </span>
+            {budget > 0 && (
+              <span className="tnum inline-flex items-center gap-1 rounded-full border border-edge bg-pure-white px-2.5 py-0.5 font-mono text-xs font-semibold text-ink shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-lime" aria-hidden="true" />
+                {budgetPct}%
+              </span>
+            )}
           </div>
         </div>
 
@@ -150,14 +159,22 @@ export function MetricCards({
               <span className="tnum font-mono text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
                 {completedExecutions}
               </span>
-              <span className="tnum font-mono text-sm text-ink/70">
-                / {totalLimit} total
-              </span>
+              {hasMandates ? (
+                <span className="tnum font-mono text-sm text-ink/70">
+                  / {totalMandates} total
+                </span>
+              ) : (
+                <span className="tnum font-mono text-sm text-ink/70">
+                  completed
+                </span>
+              )}
             </div>
-            <span className="tnum inline-flex items-center gap-1 rounded-full border border-ink/10 bg-pure-white px-2.5 py-0.5 font-mono text-xs font-semibold text-ink shadow-2xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-ink" aria-hidden="true" />
-              {execPct}%
-            </span>
+            {hasMandates && (
+              <span className="tnum inline-flex items-center gap-1 rounded-full border border-ink/10 bg-pure-white px-2.5 py-0.5 font-mono text-xs font-semibold text-ink shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-ink" aria-hidden="true" />
+                {execPct}%
+              </span>
+            )}
           </div>
         </div>
 
@@ -216,7 +233,7 @@ export function MetricCards({
             Venice decides the next route
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-dim">
-            Zero-knowledge reasoning scans liquidity pools, verifying bounds before any transaction.
+            Venice AI compares live Base Sepolia quotes against your mandate before anything moves.
           </p>
         </div>
 
