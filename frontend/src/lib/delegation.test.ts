@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
   APPROVE_SELECTOR,
-  buildApproveDelegation,
-  buildMandateDelegation,
   buildMandateDelegations,
   buildSwapDelegation,
   deserializeDelegation,

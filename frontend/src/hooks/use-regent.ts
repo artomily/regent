@@ -12,9 +12,7 @@ import {
   revokeMandateOnChain,
 } from "@/lib/contract"
 import {
-  buildMandateDelegation,
   buildMandateDelegations,
-  signMandateDelegation,
   signMandateDelegations,
 } from "@/lib/delegation"
 import {
@@ -42,7 +40,6 @@ import {
   signMandateAuthorization,
   transferUSDCToSmartAccount,
 } from "@/lib/wallet"
-import type { Delegation } from "@metamask/smart-accounts-kit"
 import { AGENT_ADDRESS, MANDATE_CONTRACT } from "@/lib/constants"
 
 const ACTIVE_KEY = "regent_active_view"
@@ -482,7 +479,7 @@ export function useRegent() {
         setIsAgentRunning(false)
       }
     },
-    [decision, isAgentRunning, refresh],
+    [decision, isAgentRunning, refresh, walletAddress],
   )
 
   const revoke = useCallback(
@@ -502,7 +499,7 @@ export function useRegent() {
 
         if (mandate.delegations || mandate.delegation) {
           const res = await disableDelegationOnChain(
-            (mandate.delegations || mandate.delegation) as any,
+            (mandate.delegations || mandate.delegation) as Parameters<typeof disableDelegationOnChain>[0],
             walletAddress,
           ).catch((err) => {
             console.warn("Failed to disable delegation on-chain:", err)

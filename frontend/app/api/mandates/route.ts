@@ -43,7 +43,11 @@ export async function POST(request: Request) {
   } | null
 
   const mandate = body?.mandate
-  const ownerAddress = body?.ownerAddress || body?.owner || mandate?.delegatorAddress || (mandate as any)?.owner
+  const ownerAddress =
+    body?.ownerAddress ||
+    body?.owner ||
+    mandate?.delegatorAddress ||
+    ((mandate as unknown as Record<string, unknown>)?.owner as string | undefined)
 
   if (!mandate?.id || !ownerAddress) {
     return NextResponse.json({ error: "Invalid mandate or owner address payload" }, { status: 400 })
