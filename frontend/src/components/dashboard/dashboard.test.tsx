@@ -1,5 +1,6 @@
 import { renderToString } from "react-dom/server"
 import { describe, expect, test } from "vitest"
+import type { ActivityEvent, Mandate } from "@/lib/types"
 import { DashboardHeader } from "./dashboard-header"
 import { DashboardRail } from "./dashboard-rail"
 import { DashboardTabs } from "./dashboard-tabs"
@@ -56,7 +57,7 @@ describe("Dashboard Components (Modeled on SaaS Reference)", () => {
     expect(html).toContain("Agent")
   })
 
-  test("MetricCards renders segmented capsule progress and promo card", () => {
+  test("MetricCards renders real metrics without fake limits or false claims", () => {
     const html = renderToString(
       <MetricCards
         activeMandate={null}
@@ -70,29 +71,108 @@ describe("Dashboard Components (Modeled on SaaS Reference)", () => {
     expect(html).toContain("Executions")
     expect(html).toContain("Venice decides the next route")
     expect(html).toContain("Run agent")
-    expect(html).toContain("progressbar")
+    // Should NOT contain false claims or invented limits
+    expect(html).not.toContain("Zero-knowledge")
+    expect(html).not.toContain("/ 5 total")
+    expect(html).not.toContain("/ 500 USDC")
   })
 
-  test("StatisticsPanel renders capsule bar chart, legend, and period selector", () => {
+  test("StatisticsPanel: empty data renders no filled bars and shows empty state message", () => {
     const html = renderToString(<StatisticsPanel activityLog={[]} mandates={[]} />)
     expect(html).toContain("Statistics")
-    expect(html).toContain("Budget spent")
-    expect(html).toContain("Output volume")
-    expect(html).toContain("Last 7 days")
+    expect(html).toContain("Budget spent (USDC)")
+    expect(html).toContain("Executions")
+    // Empty state message and link to /mandate
+    expect(html).toContain("No executions yet - authorize a mandate and run the agent")
+    expect(html).toContain('href="/mandate"')
+    // No filled bar capsules (no overflow-hidden bg-ink bars)
+    expect(html).not.toContain("overflow-hidden bg-ink")
+    // Only dashed empty capsules
+    expect(html).toContain("border-dashed")
   })
 
-  test("RightTiles renders smart account, delegation, and contract info", () => {
+  test("StatisticsPanel: given 2 executions on one day, the bar's spent value equals their sum", () => {
+    const now = Date.now()
+    const activityLog: ActivityEvent[] = [
+      {
+        id: "e1",
+        mandateId: "m1",
+        step: "confirming_transaction",
+        message: "Confirmed. Spent 18.25 USDC, received 0.005 ETH.",
+        timestamp: now,
+        metadata: { spentAmount: 18.25 },
+      },
+      {
+        id: "e2",
+        mandateId: "m1",
+        step: "confirming_transaction",
+        message: "Confirmed. Spent 31.75 USDC, received 0.009 ETH.",
+        timestamp: now,
+        metadata: { spentAmount: 31.75 },
+      },
+    ]
+
+    const html = renderToString(<StatisticsPanel activityLog={activityLog} mandates={[]} />)
+    // 18.25 + 31.75 = 50.00 USDC
+    expect(html).toContain("50.00 USDC")
+    expect(html).toContain("2 execs")
+    // Has filled bar for the execution day
+    expect(html).toContain("overflow-hidden bg-ink")
+  })
+
+  test("StatisticsPanel: given 2 mandates with spent amounts on one day, spent equals their sum", () => {
+    const now = Date.now()
+    const mandates: Mandate[] = [
+      {
+        id: "m1",
+        goal: "Acquire ETH",
+        budget: 100,
+        maxSlippage: 1,
+        targetAsset: "ETH",
+        sourceAsset: "USDC",
+        expiry: new Date(now + 3600000).toISOString(),
+        status: "completed",
+        createdAt: now,
+        spent: 42.5,
+      },
+      {
+        id: "m2",
+        goal: "Acquire WETH",
+        budget: 100,
+        maxSlippage: 1,
+        targetAsset: "WETH",
+        sourceAsset: "USDC",
+        expiry: new Date(now + 3600000).toISOString(),
+        status: "completed",
+        createdAt: now,
+        spent: 17.5,
+      },
+    ]
+
+    const html = renderToString(<StatisticsPanel activityLog={[]} mandates={mandates} />)
+    // 42.5 + 17.5 = 60.00 USDC
+    expect(html).toContain("60.00 USDC")
+  })
+
+  test("RightTiles renders real agent mode without false Zero-Knowledge claims", () => {
     const html = renderToString(
       <RightTiles
         walletAddress="0x1234567890abcdef1234567890abcdef12345678"
         activeMandate={null}
-        agentHealth={null}
+        agentHealth={{
+          ok: true,
+          mode: {
+            intelligence: "venice",
+            execution: "relayer",
+          },
+        }}
       />,
     )
     expect(html).toContain("Smart Account")
     expect(html).toContain("Delegation")
     expect(html).toContain("Venice AI status")
-    expect(html).toContain("RegentMandate")
-    expect(html).toContain("Docs &amp; Legal")
+    expect(html).toContain("venice")
+    expect(html).toContain("Private inference via Venice AI")
+    expect(html).not.toContain("Zero-Knowledge")
   })
 })
