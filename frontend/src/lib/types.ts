@@ -22,6 +22,10 @@ export interface Mandate {
   spent: number
   delegatorAddress?: Hex
   delegationHash?: Hex
+  smartAccountAddress?: Hex
+  onChainId?: Hex
+  delegation?: unknown
+  txHash?: Hex
 }
 
 export type AgentStep =
@@ -52,10 +56,12 @@ export interface Route {
   slippage: number
   fee: number
   executionPrice: number
+  simulated?: boolean
+  feeTier?: number
 }
 
 export type DecisionSource = "venice" | "heuristic" | "simulated"
-export type ExecutionSource = "relayer" | "simulated"
+export type ExecutionSource = "direct" | "relayer" | "simulated"
 
 export interface AgentDecision {
   selectedRoute: Route | null
@@ -69,6 +75,8 @@ export interface AgentDecision {
 export interface ExecutionResult {
   success: boolean
   transactionHash?: Hex
+  txHash?: string
+  recordTxHash?: string
   spentAmount: number
   receivedAmount: number
   feeAmount: number

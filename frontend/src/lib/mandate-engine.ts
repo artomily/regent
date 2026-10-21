@@ -60,7 +60,14 @@ export function recordSpend(id: string, amount: number): Mandate | null {
 
 export function updateMandateDelegation(
   id: string,
-  data: { delegatorAddress: `0x${string}`; delegationHash: `0x${string}` },
+  data: {
+    delegatorAddress?: `0x${string}`
+    delegationHash?: `0x${string}`
+    smartAccountAddress?: `0x${string}`
+    onChainId?: `0x${string}`
+    delegation?: unknown
+    txHash?: `0x${string}`
+  },
 ): Mandate | null {
   return update(id, data)
 }

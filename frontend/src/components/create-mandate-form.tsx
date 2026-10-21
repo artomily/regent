@@ -1,15 +1,20 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, CheckCircle2, FileSignature, ScrollText } from "lucide-react"
+import { ArrowLeft, ArrowRight, CheckCircle2, Coins, FileSignature, ScrollText } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import type { Hex } from "viem"
 import { DEFAULT_SOURCE_ASSET, GOAL_PRESETS, TARGET_ASSET_PRESETS } from "@/lib/constants"
+import { isOnChainEnabled } from "@/lib/contract"
 import { formatPercent, truncateMiddle } from "@/lib/format"
 import type { Mandate } from "@/lib/types"
 
 interface CreateMandateFormProps {
   walletAddress: Hex | null
+  smartAccountAddress?: Hex | null
+  smartAccountBalance?: number | null
+  onFundSmartAccount?: (amountUSDC: number) => Promise<Hex>
+  onRefreshBalance?: () => Promise<number | null>
   onCreate: (params: {
     goal: string
     budget: number
@@ -29,10 +34,20 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "authorize", label: "Authorize" },
 ]
 
-export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: CreateMandateFormProps) {
+export function CreateMandateForm({
+  walletAddress,
+  smartAccountAddress,
+  smartAccountBalance,
+  onFundSmartAccount,
+  onRefreshBalance,
+  onCreate,
+  onAuthorize,
+}: CreateMandateFormProps) {
   const [step, setStep] = useState<Step>("define")
   const [mandate, setMandate] = useState<Mandate | null>(null)
   const [busy, setBusy] = useState(false)
+  const [fundingBusy, setFundingBusy] = useState(false)
+  const [fundSuccess, setFundSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [goal, setGoal] = useState<string>(GOAL_PRESETS[0].goal)
@@ -45,6 +60,22 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
   const [expiryPreview, setExpiryPreview] = useState<Date | null>(null)
 
   const budgetNumber = Number(budget)
+  const isLive = isOnChainEnabled() && Boolean(walletAddress)
+  const isUsdc = sourceAsset.trim().toUpperCase() === "USDC"
+  const hasSmartAccount = Boolean(walletAddress && smartAccountAddress)
+
+  const isBalanceSufficient =
+    !isLive ||
+    !isUsdc ||
+    (smartAccountBalance !== null &&
+      smartAccountBalance !== undefined &&
+      smartAccountBalance >= budgetNumber)
+
+  const shortfall =
+    smartAccountBalance !== null && smartAccountBalance !== undefined
+      ? Math.max(0, budgetNumber - smartAccountBalance)
+      : budgetNumber
+
   const defineValid =
     goal.trim().length > 0 &&
     Number.isFinite(budgetNumber) &&
@@ -52,7 +83,33 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
     targetAsset.trim().length > 0 &&
     targetAsset.trim().toUpperCase() !== sourceAsset.trim().toUpperCase()
 
+  const handleFund = async () => {
+    if (!onFundSmartAccount) return
+    setFundingBusy(true)
+    setError(null)
+    setFundSuccess(null)
+    try {
+      const fundAmount = shortfall > 0 ? shortfall : budgetNumber
+      const tx = await onFundSmartAccount(fundAmount)
+      setFundSuccess(
+        `Transferred ${fundAmount.toFixed(2)} USDC to smart account (${truncateMiddle(tx)})`,
+      )
+      await onRefreshBalance?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to fund smart account")
+    } finally {
+      setFundingBusy(false)
+    }
+  }
+
   const handleCreate = async () => {
+    if (isLive && !isBalanceSufficient) {
+      setError(
+        `Insufficient smart account balance. Please fund your smart account with at least ${budgetNumber} USDC.`,
+      )
+      return
+    }
+
     setBusy(true)
     setError(null)
     try {
@@ -75,6 +132,12 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
 
   const handleAuthorize = async () => {
     if (!mandate) return
+    if (isLive && !isBalanceSufficient) {
+      setError(
+        `Cannot authorize: smart account requires at least ${budgetNumber} USDC to back delegation.`,
+      )
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -278,12 +341,68 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               </div>
             </div>
 
+            {hasSmartAccount && (
+              <div className="rounded-xl border border-edge bg-panel/50 p-4 shadow-2xs">
+                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-xs font-medium text-muted">Smart Account</p>
+                    <p className="font-mono text-xs font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</p>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-xs font-medium text-muted">Smart Account USDC Balance</p>
+                    <p
+                      className={`font-mono text-sm font-semibold ${
+                        smartAccountBalance != null && smartAccountBalance >= budgetNumber
+                          ? "text-positive"
+                          : "text-ink"
+                      }`}
+                    >
+                      {smartAccountBalance != null
+                        ? `${smartAccountBalance.toFixed(2)} USDC`
+                        : "Checking balance…"}
+                    </p>
+                  </div>
+                </div>
+
+                {isLive && smartAccountBalance !== null && smartAccountBalance !== undefined && smartAccountBalance < budgetNumber && (
+                  <div className="mt-3 rounded-lg border border-edge bg-surface p-3 shadow-2xs">
+                    <div className="flex items-start gap-2">
+                      <Coins className="mt-0.5 h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
+                      <div className="flex-1">
+                        <p className="text-xs leading-relaxed text-muted">
+                          Smart Account has {smartAccountBalance.toFixed(2)} USDC, which is less than the required {budgetNumber} USDC budget.
+                          The AI agent redeems the ERC-7710 delegation directly from your smart account on Base Sepolia.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleFund}
+                          disabled={fundingBusy}
+                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shadow-xs"
+                        >
+                          {fundingBusy ? "Transferring USDC…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fundSuccess && <p className="mt-2 text-xs text-positive">{fundSuccess}</p>}
+              </div>
+            )}
+
+            {isLive && !isBalanceSufficient && (
+              <p className="text-xs text-negative">
+                Smart account has insufficient USDC balance ({smartAccountBalance?.toFixed(2) ?? 0} / {budgetNumber} USDC).
+                Fund the smart account to proceed in live mode.
+              </p>
+            )}
+
             <button
               onClick={() => {
                 setExpiryPreview(new Date(Date.now() + expiryHours * 3_600_000))
                 setStep("review")
               }}
-              disabled={!defineValid}
+              disabled={!defineValid || (isLive && !isBalanceSufficient)}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 shadow-xs"
             >
               Review the mandate <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -317,6 +436,12 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
                   <dt className="text-muted text-xs uppercase tracking-wide">§4 Acquiring</dt>
                   <dd className="font-mono font-medium text-ink">{targetAsset}</dd>
                 </div>
+                {hasSmartAccount && (
+                  <div className="flex justify-between gap-4 border-t border-edge pt-2.5">
+                    <dt className="text-muted text-xs uppercase tracking-wide">Smart Account</dt>
+                    <dd className="font-mono font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</dd>
+                  </div>
+                )}
               </dl>
               <p className="mt-4 border-t border-edge pt-3 text-xs leading-relaxed text-muted">
                 Regent may act only inside these clauses. Anything beyond them reverts — on-chain, in the
@@ -339,7 +464,7 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
               </button>
               <button
                 onClick={handleCreate}
-                disabled={busy}
+                disabled={busy || (isLive && !isBalanceSufficient)}
                 className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 shadow-xs"
               >
                 {busy ? "Creating…" : "Create mandate"}
@@ -352,19 +477,68 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
           <div className="space-y-6 text-center">
             <FileSignature className="mx-auto h-10 w-10 text-ink" aria-hidden="true" />
             <div>
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted shadow-2xs">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${walletAddress && isOnChainEnabled() ? "bg-positive" : "bg-brass"}`}
+                    aria-hidden="true"
+                  />
+                  {walletAddress && isOnChainEnabled()
+                    ? "Live Mode · Base Sepolia"
+                    : walletAddress
+                      ? "Demo Mode · On-Chain Disabled"
+                      : "Simulation Mode"}
+                </span>
+              </div>
               <h3 className="font-display text-2xl font-light tracking-tight text-ink">Grant authority</h3>
               <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
                 {walletAddress ? (
                   <>
-                    Sign the mandate boundaries with{" "}
-                    <span className="font-mono font-medium text-ink">{truncateMiddle(walletAddress)}</span> (EIP-712).
-                    Regent can never act outside what you sign.
+                    Sign the ERC-7710 delegation from your MetaMask Smart Account with{" "}
+                    <span className="font-mono font-medium text-ink">{truncateMiddle(walletAddress)}</span>.
+                    {isOnChainEnabled()
+                      ? " Boundaries will be registered on RegentMandate."
+                      : " Authority is bounded to spending limit, expiry, and swap targets."}
                   </>
                 ) : (
                   "No wallet connected — authorization will be simulated so you can try the full flow. Connect MetaMask for a real signature."
                 )}
               </p>
             </div>
+
+            {hasSmartAccount && isLive && (
+              <div className="mx-auto max-w-sm rounded-xl border border-edge bg-panel/50 p-4 text-left shadow-2xs">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">Smart Account</span>
+                  <span className="font-mono font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-xs">
+                  <span className="text-muted">USDC Balance</span>
+                  <span
+                    className={`font-mono font-medium ${
+                      smartAccountBalance != null && smartAccountBalance >= budgetNumber
+                        ? "text-positive"
+                        : "text-ink"
+                    }`}
+                  >
+                    {smartAccountBalance != null
+                      ? `${smartAccountBalance.toFixed(2)} USDC`
+                      : "Checking…"}
+                  </span>
+                </div>
+
+                {smartAccountBalance !== null && smartAccountBalance !== undefined && smartAccountBalance < budgetNumber && (
+                  <button
+                    type="button"
+                    onClick={handleFund}
+                    disabled={fundingBusy}
+                    className="mt-3 w-full rounded-full bg-ink py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shadow-xs"
+                  >
+                    {fundingBusy ? "Funding Smart Account…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
+                  </button>
+                )}
+              </div>
+            )}
 
             {error && (
               <p role="alert" className="rounded-xl border border-negative/20 bg-negative/5 px-4 py-3 text-sm text-negative">
@@ -374,7 +548,7 @@ export function CreateMandateForm({ walletAddress, onCreate, onAuthorize }: Crea
 
             <button
               onClick={handleAuthorize}
-              disabled={busy}
+              disabled={busy || (isLive && !isBalanceSufficient)}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 shadow-xs"
             >
               {busy ? "Authorizing…" : walletAddress ? "Sign & authorize Regent" : "Authorize Regent (simulated)"}
