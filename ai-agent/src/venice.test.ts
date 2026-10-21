@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { evaluateRoutes, heuristicDecision, VeniceKeyRequiredError } from "./venice.ts"
+import { evaluateRoutes, heuristicDecision, parseAndValidateVerdict, VeniceKeyRequiredError } from "./venice.ts"
 import type { Mandate, Route } from "./types.ts"
 
 const mandate: Mandate = {
@@ -40,6 +40,32 @@ test("heuristicDecision picks the best-output route among those within budget an
   assert.equal(decision.source, "heuristic")
 })
 
+test("heuristicDecision is spent-aware and calculates remaining budget", () => {
+  const partialMandate: Mandate = { ...mandate, budget: 100, spent: 65 } // remaining is 35
+  const routes = [
+    route({ dex: "a", inputAmount: 50, outputAmount: 1 }), // breaches 35 remaining
+    route({ dex: "b", inputAmount: 30, outputAmount: 0.6 }), // fits 35 remaining
+  ]
+
+  const decision = heuristicDecision(partialMandate, routes)
+
+  assert.equal(decision.selectedRoute?.dex, "b")
+  assert.equal(decision.withinBudget, true)
+  assert.match(decision.reasoning, /remaining 35 USDC budget/)
+})
+
+test("heuristicDecision declines execution if mandate has expired", () => {
+  const expiredMandate: Mandate = {
+    ...mandate,
+    expiry: new Date(Date.now() - 5000).toISOString(),
+  }
+  const decision = heuristicDecision(expiredMandate, [route({ inputAmount: 10 })])
+
+  assert.equal(decision.selectedRoute, null)
+  assert.equal(decision.withinBudget, false)
+  assert.match(decision.reasoning, /expired/i)
+})
+
 test("heuristicDecision excludes routes that breach the slippage ceiling even with better output", () => {
   const routes = [route({ dex: "a", outputAmount: 1, slippage: 1 }), route({ dex: "b", outputAmount: 10, slippage: 5 })]
 
@@ -57,6 +83,20 @@ test("heuristicDecision declines when no route satisfies the mandate", () => {
   assert.equal(decision.withinBudget, false)
   assert.equal(decision.withinSlippage, false)
   assert.match(decision.reasoning, /Declining to execute/)
+})
+
+test("parseAndValidateVerdict validates correct schema and rejects invalid shapes", () => {
+  assert.equal(parseAndValidateVerdict(null), null)
+  assert.equal(parseAndValidateVerdict({}), null)
+  assert.equal(parseAndValidateVerdict({ selectedDex: 123, reasoning: "ok", withinBudget: true, withinSlippage: true }), null)
+  assert.deepEqual(
+    parseAndValidateVerdict({ selectedDex: "uniswap", reasoning: "best price", withinBudget: true, withinSlippage: true }),
+    { selectedDex: "uniswap", reasoning: "best price", withinBudget: true, withinSlippage: true },
+  )
+  assert.deepEqual(
+    parseAndValidateVerdict({ selectedDex: null, reasoning: "no route fits", withinBudget: false, withinSlippage: false }),
+    { selectedDex: null, reasoning: "no route fits", withinBudget: false, withinSlippage: false },
+  )
 })
 
 test("evaluateRoutes requires a Venice key — no silent heuristic fallback for a missing key", async () => {

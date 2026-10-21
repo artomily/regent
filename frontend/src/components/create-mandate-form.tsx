@@ -152,16 +152,16 @@ export function CreateMandateForm({
 
   if (step === "done") {
     return (
-      <div className="rounded-2xl border border-positive/30 bg-surface p-8 text-center">
+      <div className="rounded-2xl border border-positive/30 bg-surface p-8 text-center shadow-xs">
         <CheckCircle2 className="mx-auto h-10 w-10 text-positive" aria-hidden="true" />
-        <h3 className="mt-4 font-display text-2xl text-cream">Regent is authorized</h3>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-fog">
+        <h3 className="mt-4 font-display text-2xl font-light tracking-tight text-ink">Regent is authorized</h3>
+        <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
           The mandate is sealed. Activate the agent from the dashboard and watch it work within your
           boundaries.
         </p>
         <Link
           href="/dashboard"
-          className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-brass px-6 text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink shadow-xs"
         >
           Open the dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
@@ -170,8 +170,8 @@ export function CreateMandateForm({
   }
 
   return (
-    <div className="rounded-2xl border border-edge bg-surface">
-      <nav aria-label="Progress" className="flex border-b border-edge">
+    <div className="rounded-2xl border border-edge bg-surface shadow-xs">
+      <nav aria-label="Progress" className="flex border-b border-edge bg-panel/30">
         {STEPS.map((s, i) => {
           const stepIndex = STEPS.findIndex((x) => x.key === step)
           const state = i < stepIndex ? "done" : i === stepIndex ? "current" : "next"
@@ -179,17 +179,17 @@ export function CreateMandateForm({
             <span
               key={s.key}
               aria-current={state === "current" ? "step" : undefined}
-              className={`flex flex-1 items-center justify-center gap-2 px-3 py-3.5 text-xs font-medium tracking-wide uppercase ${
-                state === "current" ? "text-brass" : state === "done" ? "text-positive" : "text-dim"
+              className={`flex flex-1 items-center justify-center gap-2 px-3 py-3.5 text-xs font-semibold tracking-wide uppercase ${
+                state === "current" ? "text-ink" : state === "done" ? "text-positive" : "text-muted"
               }`}
             >
               <span
                 className={`tnum flex h-5 w-5 items-center justify-center rounded-full border font-mono text-[10px] ${
                   state === "current"
-                    ? "border-brass"
+                    ? "border-ink bg-ink text-white"
                     : state === "done"
-                      ? "border-positive"
-                      : "border-edge"
+                      ? "border-positive bg-positive text-white"
+                      : "border-edge bg-surface text-muted"
                 }`}
                 aria-hidden="true"
               >
@@ -205,7 +205,7 @@ export function CreateMandateForm({
         {step === "define" && (
           <div className="space-y-6">
             <div>
-              <label htmlFor="mandate-goal" className="block text-sm font-medium text-cream">
+              <label htmlFor="mandate-goal" className="block text-xs font-semibold tracking-wide text-ink uppercase">
                 Goal
               </label>
               <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Goal presets">
@@ -214,10 +214,10 @@ export function CreateMandateForm({
                     key={preset.label}
                     type="button"
                     onClick={() => setGoal(preset.goal)}
-                    className={`rounded-full border px-3.5 py-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                       goal === preset.goal
-                        ? "border-brass bg-brass-faint text-brass-bright"
-                        : "border-edge text-fog hover:border-edge-strong hover:text-cream"
+                        ? "border-ink bg-ink text-white shadow-2xs"
+                        : "border-edge bg-surface text-muted hover:border-ink hover:text-ink"
                     }`}
                   >
                     {preset.label}
@@ -230,16 +230,16 @@ export function CreateMandateForm({
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 placeholder="What should Regent accomplish?"
-                className="mt-2 w-full rounded-xl border border-edge bg-raised px-3.5 py-2.5 text-sm text-cream placeholder:text-dim focus-visible:outline-2 focus-visible:outline-brass"
+                className="mt-2 w-full rounded-xl border border-edge bg-panel/40 px-3.5 py-2.5 text-sm text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-ink"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="mandate-budget" className="block text-sm font-medium text-cream">
+                <label htmlFor="mandate-budget" className="block text-xs font-semibold tracking-wide text-ink uppercase">
                   Budget
                 </label>
-                <div className="mt-2 flex rounded-xl border border-edge bg-raised focus-within:outline-2 focus-within:outline-brass">
+                <div className="mt-2 flex rounded-xl border border-edge bg-panel/40 focus-within:outline-2 focus-within:outline-ink">
                   <input
                     id="mandate-budget"
                     type="number"
@@ -247,14 +247,14 @@ export function CreateMandateForm({
                     min={1}
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
-                    className="tnum w-full rounded-l-xl bg-transparent px-3.5 py-2.5 font-mono text-sm text-cream focus:outline-none"
+                    className="tnum w-full min-w-0 rounded-l-xl bg-transparent px-3.5 py-2.5 font-mono text-sm text-ink focus:outline-none"
                   />
                   <input
                     type="text"
                     aria-label="Source asset"
                     value={sourceAsset}
                     onChange={(e) => setSourceAsset(e.target.value.toUpperCase())}
-                    className="w-22 rounded-r-xl border-l border-edge bg-transparent px-3 py-2.5 font-mono text-sm text-fog uppercase focus:outline-none"
+                    className="w-20 shrink-0 rounded-r-xl border-l border-edge bg-transparent px-2.5 py-2.5 font-mono text-sm text-muted uppercase focus:outline-none sm:w-22 sm:px-3"
                   />
                 </div>
                 {!(budgetNumber > 0) && budget !== "" && (
@@ -263,7 +263,7 @@ export function CreateMandateForm({
               </div>
 
               <div>
-                <label htmlFor="mandate-target" className="block text-sm font-medium text-cream">
+                <label htmlFor="mandate-target" className="block text-xs font-semibold tracking-wide text-ink uppercase">
                   Target asset
                 </label>
                 <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Target asset presets">
@@ -272,10 +272,10 @@ export function CreateMandateForm({
                       key={asset}
                       type="button"
                       onClick={() => setTargetAsset(asset)}
-                      className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
+                      className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                         targetAsset === asset
-                          ? "border-brass bg-brass-faint text-brass-bright"
-                          : "border-edge text-fog hover:border-edge-strong hover:text-cream"
+                          ? "border-ink bg-ink text-white shadow-2xs"
+                          : "border-edge bg-surface text-muted hover:border-ink hover:text-ink"
                       }`}
                     >
                       {asset}
@@ -287,7 +287,7 @@ export function CreateMandateForm({
                   type="text"
                   value={targetAsset}
                   onChange={(e) => setTargetAsset(e.target.value.toUpperCase())}
-                  className="mt-2 w-full rounded-xl border border-edge bg-raised px-3.5 py-2.5 font-mono text-sm text-cream uppercase focus-visible:outline-2 focus-visible:outline-brass"
+                  className="mt-2 w-full rounded-xl border border-edge bg-panel/40 px-3.5 py-2.5 font-mono text-sm uppercase text-ink focus-visible:outline-2 focus-visible:outline-ink"
                 />
                 {targetAsset.trim().toUpperCase() === sourceAsset.trim().toUpperCase() && (
                   <p className="mt-1.5 text-xs text-negative">Target must differ from the source asset</p>
@@ -297,9 +297,9 @@ export function CreateMandateForm({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="mandate-slippage" className="flex justify-between text-sm font-medium text-cream">
+                <label htmlFor="mandate-slippage" className="flex justify-between text-xs font-semibold tracking-wide text-ink uppercase">
                   Max slippage
-                  <span className="tnum font-mono text-brass">{formatPercent(maxSlippage)}</span>
+                  <span className="tnum font-mono font-bold text-ink">{formatPercent(maxSlippage)}</span>
                 </label>
                 <input
                   id="mandate-slippage"
@@ -311,16 +311,16 @@ export function CreateMandateForm({
                   onChange={(e) => setMaxSlippage(Number(e.target.value))}
                   className="mt-3 w-full"
                 />
-                <div className="tnum mt-1 flex justify-between font-mono text-[11px] text-dim">
+                <div className="tnum mt-1 flex justify-between font-mono text-[11px] text-muted">
                   <span>0.1%</span>
                   <span>10%</span>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="mandate-expiry" className="flex justify-between text-sm font-medium text-cream">
+                <label htmlFor="mandate-expiry" className="flex justify-between text-xs font-semibold tracking-wide text-ink uppercase">
                   Expiry
-                  <span className="tnum font-mono text-brass">
+                  <span className="tnum font-mono font-bold text-ink">
                     {expiryHours < 48 ? `${expiryHours}h` : `${Math.round(expiryHours / 24)}d`}
                   </span>
                 </label>
@@ -334,7 +334,7 @@ export function CreateMandateForm({
                   onChange={(e) => setExpiryHours(Number(e.target.value))}
                   className="mt-3 w-full"
                 />
-                <div className="tnum mt-1 flex justify-between font-mono text-[11px] text-dim">
+                <div className="tnum mt-1 flex justify-between font-mono text-[11px] text-muted">
                   <span>1h</span>
                   <span>7 days</span>
                 </div>
@@ -342,19 +342,19 @@ export function CreateMandateForm({
             </div>
 
             {hasSmartAccount && (
-              <div className="rounded-xl border border-edge bg-raised p-4">
+              <div className="rounded-xl border border-edge bg-panel/50 p-4 shadow-2xs">
                 <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                   <div>
-                    <p className="text-xs font-medium text-fog">Smart Account</p>
-                    <p className="font-mono text-xs text-cream">{truncateMiddle(smartAccountAddress!)}</p>
+                    <p className="text-xs font-medium text-muted">Smart Account</p>
+                    <p className="font-mono text-xs font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</p>
                   </div>
                   <div className="sm:text-right">
-                    <p className="text-xs font-medium text-fog">Smart Account USDC Balance</p>
+                    <p className="text-xs font-medium text-muted">Smart Account USDC Balance</p>
                     <p
                       className={`font-mono text-sm font-semibold ${
                         smartAccountBalance != null && smartAccountBalance >= budgetNumber
                           ? "text-positive"
-                          : "text-brass"
+                          : "text-ink"
                       }`}
                     >
                       {smartAccountBalance != null
@@ -365,11 +365,11 @@ export function CreateMandateForm({
                 </div>
 
                 {isLive && smartAccountBalance !== null && smartAccountBalance !== undefined && smartAccountBalance < budgetNumber && (
-                  <div className="mt-3 rounded-lg border border-brass/30 bg-brass-faint p-3">
+                  <div className="mt-3 rounded-lg border border-edge bg-surface p-3 shadow-2xs">
                     <div className="flex items-start gap-2">
-                      <Coins className="mt-0.5 h-4 w-4 shrink-0 text-brass-bright" aria-hidden="true" />
+                      <Coins className="mt-0.5 h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
                       <div className="flex-1">
-                        <p className="text-xs leading-relaxed text-brass-bright">
+                        <p className="text-xs leading-relaxed text-muted">
                           Smart Account has {smartAccountBalance.toFixed(2)} USDC, which is less than the required {budgetNumber} USDC budget.
                           The AI agent redeems the ERC-7710 delegation directly from your smart account on Base Sepolia.
                         </p>
@@ -377,7 +377,7 @@ export function CreateMandateForm({
                           type="button"
                           onClick={handleFund}
                           disabled={fundingBusy}
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brass px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-brass-bright disabled:opacity-50"
+                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shadow-xs"
                         >
                           {fundingBusy ? "Transferring USDC…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
                         </button>
@@ -403,7 +403,7 @@ export function CreateMandateForm({
                 setStep("review")
               }}
               disabled={!defineValid || (isLive && !isBalanceSufficient)}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 shadow-xs"
             >
               Review the mandate <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -412,45 +412,45 @@ export function CreateMandateForm({
 
         {step === "review" && (
           <div className="space-y-6">
-            <div className="rounded-xl border border-brass/25 bg-raised p-5">
-              <p className="flex items-center gap-2 text-[11px] font-medium tracking-[0.18em] text-brass uppercase">
-                <ScrollText className="h-3.5 w-3.5" aria-hidden="true" /> Mandate of authority
+            <div className="rounded-xl border border-edge bg-panel/50 p-6 shadow-xs">
+              <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-muted uppercase font-mono">
+                <ScrollText className="h-3.5 w-3.5 text-ink" aria-hidden="true" /> Mandate of authority
               </p>
-              <h3 className="mt-2 font-display text-xl text-cream">{goal}</h3>
+              <h3 className="mt-2 font-display text-xl font-light tracking-tight text-ink">{goal}</h3>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <div className="flex justify-between gap-4">
-                  <dt className="text-fog">§1 Budget ceiling</dt>
-                  <dd className="tnum font-mono text-cream">
+                  <dt className="text-muted text-xs uppercase tracking-wide">§1 Budget ceiling</dt>
+                  <dd className="tnum font-mono font-medium text-ink">
                     {budgetNumber} {sourceAsset}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-fog">§2 Slippage ceiling</dt>
-                  <dd className="tnum font-mono text-cream">{formatPercent(maxSlippage)}</dd>
+                  <dt className="text-muted text-xs uppercase tracking-wide">§2 Slippage ceiling</dt>
+                  <dd className="tnum font-mono font-medium text-ink">{formatPercent(maxSlippage)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-fog">§3 Authority expires</dt>
-                  <dd className="tnum font-mono text-cream">{expiryPreview?.toLocaleString()}</dd>
+                  <dt className="text-muted text-xs uppercase tracking-wide">§3 Authority expires</dt>
+                  <dd className="tnum font-mono font-medium text-ink">{expiryPreview?.toLocaleString()}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-fog">§4 Acquiring</dt>
-                  <dd className="font-mono text-cream">{targetAsset}</dd>
+                  <dt className="text-muted text-xs uppercase tracking-wide">§4 Acquiring</dt>
+                  <dd className="font-mono font-medium text-ink">{targetAsset}</dd>
                 </div>
                 {hasSmartAccount && (
                   <div className="flex justify-between gap-4 border-t border-edge pt-2.5">
-                    <dt className="text-fog">Smart Account</dt>
-                    <dd className="font-mono text-cream">{truncateMiddle(smartAccountAddress!)}</dd>
+                    <dt className="text-muted text-xs uppercase tracking-wide">Smart Account</dt>
+                    <dd className="font-mono font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</dd>
                   </div>
                 )}
               </dl>
-              <p className="mt-4 border-t border-edge pt-3 text-xs leading-relaxed text-fog">
+              <p className="mt-4 border-t border-edge pt-3 text-xs leading-relaxed text-muted">
                 Regent may act only inside these clauses. Anything beyond them reverts — on-chain, in the
                 agent, and in this interface.
               </p>
             </div>
 
             {error && (
-              <p role="alert" className="rounded-xl border border-negative/30 bg-negative/10 px-4 py-3 text-sm text-negative">
+              <p role="alert" className="rounded-xl border border-negative/20 bg-negative/5 px-4 py-3 text-sm text-negative">
                 {error}
               </p>
             )}
@@ -458,14 +458,14 @@ export function CreateMandateForm({
             <div className="flex gap-3">
               <button
                 onClick={() => setStep("define")}
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-edge px-5 text-sm font-medium text-fog transition-colors hover:border-edge-strong hover:text-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-surface px-5 text-sm font-medium text-ink transition-colors hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
               </button>
               <button
                 onClick={handleCreate}
                 disabled={busy || (isLive && !isBalanceSufficient)}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 shadow-xs"
               >
                 {busy ? "Creating…" : "Create mandate"}
               </button>
@@ -475,10 +475,10 @@ export function CreateMandateForm({
 
         {step === "authorize" && (
           <div className="space-y-6 text-center">
-            <FileSignature className="mx-auto h-10 w-10 text-brass" aria-hidden="true" />
+            <FileSignature className="mx-auto h-10 w-10 text-ink" aria-hidden="true" />
             <div>
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-edge px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-fog">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted shadow-2xs">
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${walletAddress && isOnChainEnabled() ? "bg-positive" : "bg-brass"}`}
                     aria-hidden="true"
@@ -490,12 +490,12 @@ export function CreateMandateForm({
                       : "Simulation Mode"}
                 </span>
               </div>
-              <h3 className="font-display text-2xl text-cream">Grant authority</h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-fog">
+              <h3 className="font-display text-2xl font-light tracking-tight text-ink">Grant authority</h3>
+              <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
                 {walletAddress ? (
                   <>
                     Sign the ERC-7710 delegation from your MetaMask Smart Account with{" "}
-                    <span className="font-mono text-cream">{truncateMiddle(walletAddress)}</span>.
+                    <span className="font-mono font-medium text-ink">{truncateMiddle(walletAddress)}</span>.
                     {isOnChainEnabled()
                       ? " Boundaries will be registered on RegentMandate."
                       : " Authority is bounded to spending limit, expiry, and swap targets."}
@@ -507,18 +507,18 @@ export function CreateMandateForm({
             </div>
 
             {hasSmartAccount && isLive && (
-              <div className="mx-auto max-w-sm rounded-xl border border-edge bg-raised p-3 text-left">
+              <div className="mx-auto max-w-sm rounded-xl border border-edge bg-panel/50 p-4 text-left shadow-2xs">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-fog">Smart Account</span>
-                  <span className="font-mono text-cream">{truncateMiddle(smartAccountAddress!)}</span>
+                  <span className="text-muted">Smart Account</span>
+                  <span className="font-mono font-medium text-ink">{truncateMiddle(smartAccountAddress!)}</span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs">
-                  <span className="text-fog">USDC Balance</span>
+                <div className="mt-1.5 flex items-center justify-between text-xs">
+                  <span className="text-muted">USDC Balance</span>
                   <span
                     className={`font-mono font-medium ${
                       smartAccountBalance != null && smartAccountBalance >= budgetNumber
                         ? "text-positive"
-                        : "text-brass"
+                        : "text-ink"
                     }`}
                   >
                     {smartAccountBalance != null
@@ -532,7 +532,7 @@ export function CreateMandateForm({
                     type="button"
                     onClick={handleFund}
                     disabled={fundingBusy}
-                    className="mt-2.5 w-full rounded-full bg-brass py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-brass-bright disabled:opacity-50"
+                    className="mt-3 w-full rounded-full bg-ink py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shadow-xs"
                   >
                     {fundingBusy ? "Funding Smart Account…" : `Fund Smart Account (+${shortfall.toFixed(2)} USDC)`}
                   </button>
@@ -541,7 +541,7 @@ export function CreateMandateForm({
             )}
 
             {error && (
-              <p role="alert" className="rounded-xl border border-negative/30 bg-negative/10 px-4 py-3 text-sm text-negative">
+              <p role="alert" className="rounded-xl border border-negative/20 bg-negative/5 px-4 py-3 text-sm text-negative">
                 {error}
               </p>
             )}
@@ -549,7 +549,7 @@ export function CreateMandateForm({
             <button
               onClick={handleAuthorize}
               disabled={busy || (isLive && !isBalanceSufficient)}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brass text-sm font-semibold text-ink transition-colors hover:bg-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 shadow-xs"
             >
               {busy ? "Authorizing…" : walletAddress ? "Sign & authorize Regent" : "Authorize Regent (simulated)"}
             </button>

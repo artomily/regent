@@ -38,25 +38,29 @@ const SECTIONS = [
 
 export default function LegalPage() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <header className="border-b border-edge">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-          <Link href="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brass">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+          <Link href="/" className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink">
             <Brandmark />
           </Link>
           <Link
             href="/mandate"
-            className="rounded-full px-4 py-2 text-sm text-fog transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-brass"
+            className="rounded-full border border-edge bg-surface px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-panel focus-visible:outline-2 focus-visible:outline-ink"
           >
             New mandate
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
-        <p className="text-xs font-medium tracking-[0.22em] text-brass uppercase">Legal & risk disclosure</p>
-        <h1 className="mt-3 font-display text-4xl text-cream">Read this before you sign a mandate.</h1>
-        <p className="mt-4 text-base leading-relaxed text-fog">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-16 sm:px-6">
+        <p className="font-mono text-xs font-semibold tracking-[0.2em] text-muted uppercase">
+          Legal & risk disclosure
+        </p>
+        <h1 className="mt-3 font-display text-3xl font-light tracking-tight text-ink sm:text-5xl">
+          Read this before you sign a mandate.
+        </h1>
+        <p className="mt-4 text-sm leading-relaxed text-muted sm:text-base">
           Regent is non-custodial and boundary-enforced, but it is still software, and the software is still
           young. Here is what that means in practice.
         </p>
@@ -64,34 +68,34 @@ export default function LegalPage() {
         <div className="mt-12 space-y-8">
           {SECTIONS.map((s) => (
             <section key={s.title} className="border-t border-edge pt-8">
-              <h2 className="font-display text-2xl text-brass-bright">{s.title}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-fog">{s.body}</p>
+              <h2 className="font-display text-xl font-light tracking-tight text-ink">{s.title}</h2>
+              <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">{s.body}</p>
             </section>
           ))}
         </div>
 
-        <div className="mt-12 flex flex-wrap gap-x-6 gap-y-2 border-t border-edge pt-8 text-sm">
+        <div className="mt-12 flex flex-wrap gap-x-6 gap-y-2 border-t border-edge pt-8 text-xs font-medium text-muted">
           <a
             href="https://github.com/artomily/regent"
-            className="text-cream underline decoration-edge-strong underline-offset-4 transition-colors hover:text-brass-bright"
+            className="text-ink underline decoration-edge underline-offset-4 transition-colors hover:text-muted"
           >
             Source code
           </a>
           <a
             href="https://github.com/artomily/regent/blob/main/LICENSE"
-            className="text-cream underline decoration-edge-strong underline-offset-4 transition-colors hover:text-brass-bright"
+            className="text-ink underline decoration-edge underline-offset-4 transition-colors hover:text-muted"
           >
             MIT License
           </a>
           <a
             href="https://github.com/artomily/regent/blob/main/SECURITY.md"
-            className="text-cream underline decoration-edge-strong underline-offset-4 transition-colors hover:text-brass-bright"
+            className="text-ink underline decoration-edge underline-offset-4 transition-colors hover:text-muted"
           >
             Report a security issue
           </a>
           <a
             href="https://github.com/artomily/regent/issues"
-            className="text-cream underline decoration-edge-strong underline-offset-4 transition-colors hover:text-brass-bright"
+            className="text-ink underline decoration-edge underline-offset-4 transition-colors hover:text-muted"
           >
             File an issue
           </a>
@@ -99,6 +103,6 @@ export default function LegalPage() {
       </main>
 
       <SiteFooter />
-    </>
+    </div>
   )
 }

@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og"
 
+// Note: OG image keeps literal hex colors because next/og ImageResponse renders
+// via Satori in an isolated edge/server environment and cannot read runtime CSS variables.
 export const alt = "Regent — you give the mandate, Regent executes"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -15,81 +17,103 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0f0d0a",
+          background: "#F5F4EE",
           position: "relative",
+          fontFamily: "sans-serif",
         }}
       >
         <div
           style={{
             position: "absolute",
-            top: 48,
-            left: 48,
-            right: 48,
-            bottom: 48,
-            border: "1px solid rgba(236,230,217,0.18)",
-            borderRadius: 6,
+            top: 40,
+            left: 40,
+            right: 40,
+            bottom: 40,
+            border: "1px solid #DCDBD3",
+            borderRadius: 16,
             display: "flex",
           }}
         />
         <div
           style={{
             position: "absolute",
-            top: 96,
-            left: 88,
+            top: 70,
+            left: 70,
             fontSize: 13,
             letterSpacing: 3,
-            color: "#7a7263",
+            color: "#8A8A85",
             display: "flex",
+            fontWeight: 600,
           }}
         >
-          MANDATE-BOUNDED AI AGENT
+          (01) MANDATE-BOUNDED AGENT
         </div>
         <div
           style={{
             position: "absolute",
-            top: 96,
-            right: 88,
+            top: 70,
+            right: 70,
             fontSize: 13,
             letterSpacing: 3,
-            color: "#7a7263",
+            color: "#8A8A85",
+            display: "flex",
+            fontWeight: 600,
+          }}
+        >
+          THE MANDATE IS LAW ©2026
+        </div>
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: "#E3E82A",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
+            fontWeight: 700,
+            color: "#111110",
+            marginBottom: 20,
+          }}
+        >
+          R
+        </div>
+        <div
+          style={{
+            fontSize: 104,
+            fontWeight: 300,
+            letterSpacing: -4,
+            color: "#111110",
             display: "flex",
           }}
         >
-          THE MANDATE IS LAW
+          REGENT®
         </div>
-        <svg width="120" height="120" viewBox="0 0 140 140" style={{ marginBottom: 24 }}>
-          <circle cx="70" cy="70" r="54" fill="none" stroke="#c9a35e" strokeWidth="1.5" />
-          <rect
-            x="52"
-            y="52"
-            width="36"
-            height="36"
-            fill="none"
-            stroke="#c9a35e"
-            strokeWidth="1.5"
-            transform="rotate(45 70 70)"
-          />
-          <circle cx="70" cy="70" r="3" fill="#c9a35e" />
-        </svg>
-        <div style={{ fontSize: 116, color: "#c9a35e", display: "flex" }}>Regent</div>
         <div
           style={{
-            fontSize: 20,
-            letterSpacing: 3,
-            color: "#a89e8a",
+            fontSize: 22,
+            letterSpacing: 2,
+            color: "#8A8A85",
             marginTop: 16,
             display: "flex",
+            fontWeight: 400,
           }}
         >
           YOU GIVE THE MANDATE. REGENT EXECUTES.
         </div>
         <div
           style={{
-            fontSize: 14,
+            fontSize: 13,
             letterSpacing: 2,
-            color: "#7a7263",
+            color: "#111110",
             marginTop: 48,
             display: "flex",
+            padding: "8px 24px",
+            borderRadius: 9999,
+            background: "#EDECE5",
+            border: "1px solid #DCDBD3",
+            fontWeight: 500,
           }}
         >
           BASE SEPOLIA · VENICE AI · 1SHOT RELAYER · METAMASK SMART ACCOUNTS

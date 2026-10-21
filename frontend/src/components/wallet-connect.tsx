@@ -39,7 +39,7 @@ export function WalletConnect({ address, onConnect }: WalletConnectProps) {
     return (
       <div className="flex items-center gap-2">
         <span
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-surface px-4 font-mono text-xs text-cream"
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-surface px-3.5 font-mono text-xs text-ink shadow-2xs"
           title={displayedSmartAccount ? `Smart Account: ${displayedSmartAccount}` : undefined}
         >
           <span
@@ -48,11 +48,11 @@ export function WalletConnect({ address, onConnect }: WalletConnectProps) {
           />
           <span>{truncateMiddle(address)}</span>
           {displayedSmartAccount && (
-            <span className="hidden text-[10px] text-fog sm:inline">
+            <span className="hidden text-[10px] text-muted sm:inline">
               · SA: {truncateMiddle(displayedSmartAccount, 4, 3)}
             </span>
           )}
-          <span className="text-[10px] tracking-wide text-fog uppercase">
+          <span className="text-[10px] tracking-wide text-muted uppercase">
             {isLive ? "Live" : "Demo"}
           </span>
         </span>
@@ -80,17 +80,14 @@ export function WalletConnect({ address, onConnect }: WalletConnectProps) {
       <button
         onClick={connect}
         disabled={busy}
-        className="inline-flex h-10 items-center gap-2 rounded-full border border-edge-strong px-4 text-xs font-semibold whitespace-nowrap text-cream transition-colors hover:border-brass hover:text-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-xs font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 shadow-2xs"
       >
         <Wallet className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="sm:hidden">{busy ? "Connecting…" : "Connect"}</span>
         <span className="hidden sm:inline">{busy ? "Connecting…" : "Connect wallet"}</span>
       </button>
       {error && (
-        <p
-          role="alert"
-          className="absolute top-full right-0 mt-2 w-64 rounded-lg border border-edge bg-raised p-3 text-xs text-negative"
-        >
+        <p role="alert" className="absolute top-full right-0 mt-2 w-64 rounded-xl border border-edge bg-panel p-3 text-xs text-negative shadow-lg z-50">
           {error}
         </p>
       )}

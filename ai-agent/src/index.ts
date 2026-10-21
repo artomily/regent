@@ -1,19 +1,47 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { LIVE_EXECUTION, PORT, VENICE_API_KEY } from "./config.ts"
+import {
+  AGENT_API_TOKEN,
+  ALLOWED_ORIGIN,
+  EXECUTION_MODE,
+  LIVE_EXECUTION,
+  PORT,
+  VENICE_API_KEY,
+} from "./config.ts"
+import { saveDecision, saveExecution } from "./db.ts"
 import { executeRoute } from "./executor.ts"
 import { fetchQuotes } from "./quotes.ts"
 import { checkRateLimit } from "./rate-limit.ts"
-import { evaluateRoutes, VeniceKeyRequiredError } from "./venice.ts"
 import type { Mandate, Route } from "./types.ts"
+import { evaluateRoutes, VeniceKeyRequiredError } from "./venice.ts"
 
 const startedAt = Date.now()
 
-const server = createServer(async (req, res) => {
-  // The Next.js frontend proxies server-side, but allow direct browser calls too.
-  res.setHeader("Access-Control-Allow-Origin", "*")
+export const server = createServer(async (req, res) => {
+  // Restrict CORS to ALLOWED_ORIGIN
+  const requestOrigin = req.headers.origin
+  const allowedOriginHeader = !requestOrigin || requestOrigin === ALLOWED_ORIGIN
+    ? (requestOrigin ?? ALLOWED_ORIGIN)
+    : ALLOWED_ORIGIN
+
+  res.setHeader("Access-Control-Allow-Origin", allowedOriginHeader)
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Venice-Api-Key")
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Venice-Api-Key, Authorization, X-Agent-Api-Token")
+
   if (req.method === "OPTIONS") return res.writeHead(204).end()
+
+  // Optional shared secret authentication
+  if (AGENT_API_TOKEN) {
+    const authHeader = req.headers["authorization"]
+    const tokenHeader = req.headers["x-agent-api-token"]
+    const bearer = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : undefined
+    const token = typeof tokenHeader === "string" ? tokenHeader : bearer
+
+    if (token !== AGENT_API_TOKEN) {
+      return json(res, 401, { error: "Unauthorized: invalid or missing agent API token" })
+    }
+  }
 
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`)
   const clientId = clientIdFor(req)
@@ -39,7 +67,7 @@ const server = createServer(async (req, res) => {
         uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
         mode: {
           intelligence: VENICE_API_KEY ? "venice" : "heuristic",
-          execution: LIVE_EXECUTION ? "relayer" : "simulated",
+          execution: EXECUTION_MODE,
         },
       })
     }
@@ -59,6 +87,7 @@ const server = createServer(async (req, res) => {
       const apiKey = req.headers["x-venice-api-key"]
       try {
         const decision = await evaluateRoutes(mandate, routes, typeof apiKey === "string" ? apiKey : undefined)
+        await saveDecision(mandate, decision)
         return json(res, 200, { decision })
       } catch (error) {
         if (error instanceof VeniceKeyRequiredError) return json(res, 400, { error: error.message })
@@ -71,6 +100,7 @@ const server = createServer(async (req, res) => {
       const mandate = validateMandate(body?.mandate)
       if (!mandate || !body?.route?.dex) return json(res, 400, { error: "Invalid execution payload" })
       const result = await executeRoute(mandate, body.route)
+      await saveExecution(mandate, body.route, result)
       return json(res, 200, { result })
     }
 
@@ -109,21 +139,26 @@ function mandateFromQuery(url: URL): Mandate {
     sourceAsset: url.searchParams.get("source") ?? "USDC",
     targetAsset: url.searchParams.get("target") ?? "ETH",
     budget: Number(url.searchParams.get("budget") ?? 20),
+    spent: Number(url.searchParams.get("spent") ?? 0),
     maxSlippage: Number(url.searchParams.get("maxSlippage") ?? 2),
     expiry: new Date(Date.now() + 86_400_000).toISOString(),
   }
 }
 
-function validateMandate(m: Mandate | undefined): Mandate | null {
+export function validateMandate(m: Mandate | undefined): Mandate | null {
   if (!m || typeof m.id !== "string" || !m.id) return null
   if (typeof m.budget !== "number" || !Number.isFinite(m.budget) || m.budget <= 0) return null
+  if (m.spent !== undefined && (typeof m.spent !== "number" || !Number.isFinite(m.spent) || m.spent < 0)) return null
   if (typeof m.maxSlippage !== "number" || m.maxSlippage < 0 || m.maxSlippage > 100) return null
   if (typeof m.sourceAsset !== "string" || typeof m.targetAsset !== "string") return null
   return m
 }
 
-server.listen(PORT, () => {
-  console.log(`regent-agent listening on http://localhost:${PORT}`)
-  console.log(`  intelligence: ${VENICE_API_KEY ? "venice" : "heuristic (set VENICE_API_KEY for live)"}`)
-  console.log(`  execution:    ${LIVE_EXECUTION ? "relayer" : "simulated (set EXECUTION_MODE=live for 1Shot)"}`)
-})
+// Only start the server if this file is run directly
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
+  server.listen(PORT, () => {
+    console.log(`regent-agent listening on http://localhost:${PORT}`)
+    console.log(`  intelligence: ${VENICE_API_KEY ? "venice" : "heuristic (set VENICE_API_KEY for live)"}`)
+    console.log(`  execution:    ${EXECUTION_MODE}`)
+  })
+}

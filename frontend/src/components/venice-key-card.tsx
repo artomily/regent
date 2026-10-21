@@ -17,11 +17,11 @@ export function VeniceKeyCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-edge bg-surface p-6">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-cream">
-        <KeyRound className="h-3.5 w-3.5 text-brass" aria-hidden="true" /> Venice AI key (required)
+    <section className="rounded-2xl border border-edge bg-surface p-6 shadow-xs">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <KeyRound className="h-3.5 w-3.5 text-ink" aria-hidden="true" /> Venice AI key (required)
       </h2>
-      <p className="mt-2 text-xs leading-relaxed text-fog">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         Regent needs a real Venice API key to decide — there is no silent fallback to a canned policy.
         Paste yours below, or the agent falls back to VENICE_API_KEY if the service itself has one
         configured. Stored only in this browser and sent solely with your own evaluation requests — never
@@ -35,12 +35,12 @@ export function VeniceKeyCard() {
           placeholder="sk-..."
           autoComplete="off"
           aria-label="Venice API key"
-          className="w-full rounded-xl border border-edge bg-raised px-3.5 py-2.5 font-mono text-sm text-cream placeholder:text-dim focus-visible:outline-2 focus-visible:outline-brass"
+          className="w-full min-w-0 rounded-xl border border-edge bg-panel/50 px-3.5 py-2 font-mono text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-ink"
         />
         <button
           type="button"
           onClick={handleSave}
-          className="shrink-0 rounded-xl border border-edge-strong px-4 text-sm font-medium text-cream transition-colors hover:border-brass hover:text-brass-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className="shrink-0 rounded-xl border border-edge bg-panel px-4 text-xs font-semibold text-ink transition-colors hover:bg-edge focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           {saved ? "Saved" : "Save"}
         </button>
