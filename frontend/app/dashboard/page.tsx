@@ -80,7 +80,7 @@ export default function Dashboard() {
     <div className="min-h-screen w-full bg-canvas text-ink antialiased">
       <div className="flex min-h-screen w-full flex-col">
         {/* App Shell Container modeled on the SaaS reference */}
-        <div className="relative flex flex-1 flex-col p-4 md:flex-row md:p-6 lg:p-8">
+        <div className="relative flex flex-1 flex-col md:flex-row">
           {/* Left Vertical Icon Rail (Bottom Bar on Mobile) */}
           <DashboardRail
             activeTab={activeTab}
@@ -90,7 +90,7 @@ export default function Dashboard() {
           />
 
           {/* Main Dashboard Canvas */}
-          <main className="flex flex-1 flex-col min-w-0 md:pl-6 lg:pl-8 pb-20 md:pb-0">
+          <main className="flex flex-1 flex-col min-w-0 p-4 pb-20 md:p-6 lg:p-8">
             {/* Header: Editorial headline with inline pills and right-side CTA */}
             <DashboardHeader onOpenSettings={() => setActiveTab("agent")} />
 
