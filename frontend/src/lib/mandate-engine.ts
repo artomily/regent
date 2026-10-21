@@ -66,6 +66,7 @@ export function updateMandateDelegation(
     smartAccountAddress?: `0x${string}`
     onChainId?: `0x${string}`
     delegation?: unknown
+    delegations?: unknown
     txHash?: `0x${string}`
   },
 ): Mandate | null {

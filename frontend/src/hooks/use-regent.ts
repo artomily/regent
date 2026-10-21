@@ -12,7 +12,9 @@ import {
 } from "@/lib/contract"
 import {
   buildMandateDelegation,
+  buildMandateDelegations,
   signMandateDelegation,
+  signMandateDelegations,
 } from "@/lib/delegation"
 import {
   checkBudget,
@@ -267,17 +269,17 @@ export function useRegent() {
           console.warn("Smart account deployment check failed or skipped:", e)
         }
 
-        // 3. Build & sign ERC-7710 delegation with caveats
-        const rawDelegation = buildMandateDelegation({
+        // 3. Build & sign ERC-7710 delegations with caveats (approve + swap)
+        const rawDelegations = buildMandateDelegations({
           smartAccountAddress: smartAccount.address,
           agentAddress: AGENT_ADDRESS || undefined,
           mandate,
           mandateContractAddress: MANDATE_CONTRACT ? (MANDATE_CONTRACT as Hex) : undefined,
         })
 
-        const signedDelegation = await signMandateDelegation(smartAccount, rawDelegation)
-        addActivity(mandateId, "permission_granted", "ERC-7710 delegation signed by Smart Account.", {
-          delegationHash: signedDelegation.signature,
+        const signedDelegations = await signMandateDelegations(smartAccount, rawDelegations)
+        addActivity(mandateId, "permission_granted", "ERC-7710 delegations (approve + swap) signed by Smart Account.", {
+          delegationHash: signedDelegations.swap.signature,
         })
 
         let onChainId: Hex | undefined
@@ -297,10 +299,11 @@ export function useRegent() {
         // Update local mandate record
         const updated = updateMandateDelegation(mandateId, {
           delegatorAddress: walletAddress,
-          delegationHash: signedDelegation.signature,
+          delegationHash: signedDelegations.swap.signature,
           smartAccountAddress: smartAccount.address,
           onChainId,
-          delegation: signedDelegation,
+          delegation: signedDelegations.swap,
+          delegations: signedDelegations,
           txHash,
         })
 
@@ -468,9 +471,9 @@ export function useRegent() {
           )
         }
 
-        if (mandate.delegation) {
+        if (mandate.delegations || mandate.delegation) {
           const res = await disableDelegationOnChain(
-            mandate.delegation as Delegation,
+            (mandate.delegations || mandate.delegation) as any,
             walletAddress,
           ).catch((err) => {
             console.warn("Failed to disable delegation on-chain:", err)
@@ -480,7 +483,7 @@ export function useRegent() {
             addActivity(
               mandateId,
               "mandate_revoked",
-              "ERC-7710 delegation disabled via Smart Account UserOp in DelegationManager.",
+              "ERC-7710 delegations disabled via Smart Account UserOp in DelegationManager.",
             )
           } else if (res?.message) {
             addActivity(mandateId, "mandate_revoked", res.message)

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest"
 import {
   APPROVE_SELECTOR,
+  buildApproveDelegation,
   buildMandateDelegation,
+  buildMandateDelegations,
+  buildSwapDelegation,
   deserializeDelegation,
+  deserializeDelegations,
   EXACT_INPUT_SINGLE_SELECTOR,
   serializeDelegation,
+  serializeDelegations,
 } from "./delegation"
 import { SWAP_ROUTERS, TOKEN_ADDRESSES } from "./constants"
 import type { Mandate } from "./types"
@@ -27,81 +32,108 @@ describe("delegation caveat construction", () => {
   const agentAddress = "0x2222222222222222222222222222222222222222"
   const contractAddress = "0x3333333333333333333333333333333333333333"
 
-  it("builds a valid ERC-7710 delegation with required functionCall scope and caveats", () => {
-    const delegation = buildMandateDelegation({
+  it("builds two narrow delegations (approve and swap) with distinct targets and scopes", () => {
+    const { approve, swap } = buildMandateDelegations({
       smartAccountAddress,
       agentAddress,
       mandate: dummyMandate,
       mandateContractAddress: contractAddress,
     })
 
-    expect(delegation.delegator.toLowerCase()).toBe(smartAccountAddress.toLowerCase())
-    expect(delegation.delegate.toLowerCase()).toBe(agentAddress.toLowerCase())
-    expect(delegation.caveats.length).toBeGreaterThanOrEqual(6)
+    expect(approve.delegator.toLowerCase()).toBe(smartAccountAddress.toLowerCase())
+    expect(approve.delegate.toLowerCase()).toBe(agentAddress.toLowerCase())
+    expect(swap.delegator.toLowerCase()).toBe(smartAccountAddress.toLowerCase())
+    expect(swap.delegate.toLowerCase()).toBe(agentAddress.toLowerCase())
 
-    // Check allowed targets includes USDC and SwapRouter02
+    // 1. Approve delegation tests
     const usdcHex = TOKEN_ADDRESSES.USDC.toLowerCase().replace("0x", "")
     const swapRouterHex = SWAP_ROUTERS[0].toLowerCase().replace("0x", "")
+    const wethHex = TOKEN_ADDRESSES.WETH.toLowerCase().replace("0x", "")
+    const smartAccountHex = smartAccountAddress.toLowerCase().replace("0x", "")
 
-    const targetsCaveat = delegation.caveats.find(
-      (c) =>
-        c.terms.toLowerCase().includes(usdcHex) &&
-        c.terms.toLowerCase().includes(swapRouterHex),
+    const approveTargetsCaveat = approve.caveats.find((c) =>
+      c.terms.toLowerCase().includes(usdcHex),
     )
-    expect(targetsCaveat).toBeDefined()
+    expect(approveTargetsCaveat).toBeDefined()
 
-    // Check allowed methods includes approve and exactInputSingle selectors
     const approveHex = APPROVE_SELECTOR.replace("0x", "")
-    const exactInputHex = EXACT_INPUT_SINGLE_SELECTOR.replace("0x", "")
-
-    const methodsCaveat = delegation.caveats.find(
-      (c) =>
-        c.terms.toLowerCase().includes(approveHex) &&
-        c.terms.toLowerCase().includes(exactInputHex),
+    const approveMethodsCaveat = approve.caveats.find((c) =>
+      c.terms.toLowerCase().includes(approveHex),
     )
-    expect(methodsCaveat).toBeDefined()
+    expect(approveMethodsCaveat).toBeDefined()
 
-    // Check allowedCalldata caveats pin SwapRouter02, USDC, and smartAccount
-    const calldataSpender = delegation.caveats.find((c) =>
+    // AllowedCalldata pins SwapRouter02 at index 4 for approve
+    const approveCalldataCaveat = approve.caveats.find((c) =>
       c.terms.toLowerCase().includes(swapRouterHex),
     )
-    expect(calldataSpender).toBeDefined()
+    expect(approveCalldataCaveat).toBeDefined()
 
-    const smartAccountHex = smartAccountAddress.toLowerCase().replace("0x", "")
-    const calldataRecipient = delegation.caveats.find((c) =>
+    // 2. Swap delegation tests
+    const swapTargetsCaveat = swap.caveats.find((c) =>
+      c.terms.toLowerCase().includes(swapRouterHex),
+    )
+    expect(swapTargetsCaveat).toBeDefined()
+
+    const exactInputHex = EXACT_INPUT_SINGLE_SELECTOR.replace("0x", "")
+    const swapMethodsCaveat = swap.caveats.find((c) =>
+      c.terms.toLowerCase().includes(exactInputHex),
+    )
+    expect(swapMethodsCaveat).toBeDefined()
+
+    // AllowedCalldata pins tokenIn (USDC) at index 4, tokenOut (WETH) at index 36, recipient (smartAccount) at index 100
+    const swapCalldataUsdc = swap.caveats.find((c) =>
+      c.terms.toLowerCase().includes(usdcHex),
+    )
+    expect(swapCalldataUsdc).toBeDefined()
+
+    const swapCalldataWeth = swap.caveats.find((c) =>
+      c.terms.toLowerCase().includes(wethHex),
+    )
+    expect(swapCalldataWeth).toBeDefined()
+
+    const swapCalldataRecipient = swap.caveats.find((c) =>
       c.terms.toLowerCase().includes(smartAccountHex),
     )
-    expect(calldataRecipient).toBeDefined()
+    expect(swapCalldataRecipient).toBeDefined()
 
-    // Check erc20BalanceChange caveat pins USDC decrease <= budget
-    const balanceChangeCaveat = delegation.caveats.find(
+    // ERC20BalanceChange caveat pins USDC decrease <= budget on swap delegation only
+    const balanceChangeCaveat = swap.caveats.find(
       (c) =>
         c.terms.toLowerCase().includes(usdcHex) &&
         c.terms.toLowerCase().includes(smartAccountHex),
     )
     expect(balanceChangeCaveat).toBeDefined()
+
+    // Approve delegation does NOT have ERC20BalanceChange caveat
+    const approveBalanceCaveat = approve.caveats.find(
+      (c) => c.enforcer.toLowerCase() === balanceChangeCaveat?.enforcer.toLowerCase(),
+    )
+    expect(approveBalanceCaveat).toBeUndefined()
   })
 
-  it("generates differing random 32-byte salts per delegation by default", () => {
-    const d1 = buildMandateDelegation({
+  it("generates differing random 32-byte salts per delegation and between approve and swap", () => {
+    const pair1 = buildMandateDelegations({
       smartAccountAddress,
       agentAddress,
       mandate: dummyMandate,
     })
-    const d2 = buildMandateDelegation({
+    const pair2 = buildMandateDelegations({
       smartAccountAddress,
       agentAddress,
       mandate: dummyMandate,
     })
 
-    expect(d1.salt).not.toBe(d2.salt)
-    expect(d1.salt).toMatch(/^0x[0-9a-fA-F]{64}$/)
-    expect(d2.salt).toMatch(/^0x[0-9a-fA-F]{64}$/)
+    expect(pair1.approve.salt).not.toBe(pair1.swap.salt)
+    expect(pair1.approve.salt).toMatch(/^0x[0-9a-fA-F]{64}$/)
+    expect(pair1.swap.salt).toMatch(/^0x[0-9a-fA-F]{64}$/)
+
+    expect(pair1.approve.salt).not.toBe(pair2.approve.salt)
+    expect(pair1.swap.salt).not.toBe(pair2.swap.salt)
   })
 
   it("refuses in live mode if NEXT_PUBLIC_AGENT_ADDRESS is unset or placeholder", () => {
     expect(() =>
-      buildMandateDelegation({
+      buildMandateDelegations({
         smartAccountAddress,
         agentAddress: undefined,
         mandate: dummyMandate,
@@ -110,7 +142,7 @@ describe("delegation caveat construction", () => {
     ).toThrow(/NEXT_PUBLIC_AGENT_ADDRESS is unset or placeholder/)
 
     expect(() =>
-      buildMandateDelegation({
+      buildMandateDelegations({
         smartAccountAddress,
         agentAddress: "0x0000000000000000000000000000000000000000",
         mandate: dummyMandate,
@@ -119,8 +151,28 @@ describe("delegation caveat construction", () => {
     ).toThrow(/NEXT_PUBLIC_AGENT_ADDRESS is unset or placeholder/)
   })
 
-  it("serializes and deserializes delegation preserving structure", () => {
-    const delegation = buildMandateDelegation({
+  it("serializes and deserializes delegation pair preserving structure", () => {
+    const pair = buildMandateDelegations({
+      smartAccountAddress,
+      agentAddress,
+      mandate: dummyMandate,
+    })
+
+    const serialized = serializeDelegations(pair)
+    expect(typeof serialized).toBe("string")
+
+    const parsed = deserializeDelegations(serialized)
+    expect(parsed.approve.delegator).toBe(pair.approve.delegator)
+    expect(parsed.approve.delegate).toBe(pair.approve.delegate)
+    expect(parsed.approve.salt).toBe(pair.approve.salt)
+
+    expect(parsed.swap.delegator).toBe(pair.swap.delegator)
+    expect(parsed.swap.delegate).toBe(pair.swap.delegate)
+    expect(parsed.swap.salt).toBe(pair.swap.salt)
+  })
+
+  it("serializes and deserializes single delegation preserving structure", () => {
+    const delegation = buildSwapDelegation({
       smartAccountAddress,
       agentAddress,
       mandate: dummyMandate,

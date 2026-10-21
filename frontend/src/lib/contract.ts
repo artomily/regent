@@ -22,6 +22,7 @@ import {
   MANDATE_CONTRACT,
   TOKEN_ADDRESSES,
 } from "./constants"
+import { deserializeDelegation } from "./delegation"
 import type { Mandate } from "./types"
 import {
   createMetaMaskSmartAccount,
@@ -158,15 +159,41 @@ export async function revokeMandateOnChain(onChainId: Hex, owner: Hex): Promise<
  *   as a UserOperation by the Smart Account via an ERC-4337 bundler.
  */
 export async function disableDelegationOnChain(
-  delegation: Delegation,
+  delegationOrPair: Delegation | { approve?: unknown; swap?: unknown } | Delegation[],
   owner: Hex,
   smartAccount?: MetaMaskSmartAccount,
 ): Promise<DisableDelegationResult> {
   const env = getSmartAccountsEnvironment(BASE_SEPOLIA_CHAIN_ID)
-  const callData = contracts.DelegationManager.encode.disableDelegation({ delegation })
-
   const sa = smartAccount ?? (await createMetaMaskSmartAccount(owner))
   await deploySmartAccountIfNeeded(sa, owner)
+
+  const delegationsToDisable: Delegation[] = []
+  if (Array.isArray(delegationOrPair)) {
+    delegationsToDisable.push(...delegationOrPair)
+  } else if (delegationOrPair && typeof delegationOrPair === "object") {
+    if ("delegate" in delegationOrPair && "delegator" in delegationOrPair && "caveats" in delegationOrPair) {
+      delegationsToDisable.push(delegationOrPair as Delegation)
+    } else {
+      const pair = delegationOrPair as { approve?: unknown; swap?: unknown }
+      if (pair.approve) {
+        try {
+          delegationsToDisable.push(deserializeDelegation(pair.approve))
+        } catch {}
+      }
+      if (pair.swap) {
+        try {
+          delegationsToDisable.push(deserializeDelegation(pair.swap))
+        } catch {}
+      }
+    }
+  }
+
+  if (delegationsToDisable.length === 0) {
+    return {
+      disabledOnChain: false,
+      message: "No delegations found to disable",
+    }
+  }
 
   const bundler = getBundlerClient(sa)
   if (!bundler) {
@@ -179,15 +206,15 @@ export async function disableDelegationOnChain(
     }
   }
 
+  const calls = delegationsToDisable.map((delegation) => ({
+    to: env.DelegationManager as Hex,
+    data: contracts.DelegationManager.encode.disableDelegation({ delegation }),
+    value: BigInt(0),
+  }))
+
   const userOpHash = await bundler.sendUserOperation({
     account: sa,
-    calls: [
-      {
-        to: env.DelegationManager,
-        data: callData,
-        value: BigInt(0),
-      },
-    ],
+    calls,
   })
 
   const receipt = await bundler.waitForUserOperationReceipt({ hash: userOpHash })
@@ -195,7 +222,7 @@ export async function disableDelegationOnChain(
     txHash: receipt.receipt.transactionHash,
     userOpHash,
     disabledOnChain: true,
-    message: "Delegation disabled on DelegationManager via Smart Account UserOp.",
+    message: `${delegationsToDisable.length} delegation(s) disabled on DelegationManager via Smart Account UserOp.`,
   }
 }
 
