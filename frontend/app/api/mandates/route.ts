@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     const rawDelegations = mandate.delegations || mandate.delegation
     const delegationJson = rawDelegations ? JSON.stringify(rawDelegations) : null
 
-    await sql`
+    const written = (await sql`
       INSERT INTO mandates (
         id, owner_address, smart_account_address, on_chain_id, goal, budget, spent, max_slippage,
         source_asset, target_asset, expiry, status, delegator_address, delegation_hash, delegation,
@@ -120,7 +120,14 @@ export async function POST(request: Request) {
         delegation_hash = EXCLUDED.delegation_hash,
         tx_hash = EXCLUDED.tx_hash,
         updated_at = EXCLUDED.updated_at
-    `
+      WHERE LOWER(mandates.owner_address) = LOWER(EXCLUDED.owner_address)
+      RETURNING id
+    `) as Array<{ id: string }>
+
+    // An existing id owned by someone else is left untouched and reported as forbidden.
+    if (written.length === 0) {
+      return NextResponse.json({ error: "Mandate belongs to a different owner" }, { status: 403 })
+    }
 
     return NextResponse.json({ mandate, configured: true })
   } catch (error) {
@@ -165,7 +172,8 @@ export async function PATCH(request: Request) {
         expectedOwner = rows[0].owner_address
       }
     } catch {
-      // If DB query fails, continue with body-supplied owner
+      // Fail closed: without the stored owner we cannot tell who may update this row.
+      return NextResponse.json({ error: "Unable to verify mandate ownership" }, { status: 503 })
     }
   }
 
