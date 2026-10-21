@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 import type { Hex } from "viem"
 import { addActivity, getActivityForMandate } from "@/lib/activity"
 import { fetchAgentHealth, requestEvaluation, requestExecution } from "@/lib/agent-client"
+import { signMandateAuth } from "@/lib/auth"
 import {
   disableDelegationOnChain,
   isOnChainEnabled,
@@ -11,8 +12,8 @@ import {
   revokeMandateOnChain,
 } from "@/lib/contract"
 import {
-  buildMandateDelegation,
-  signMandateDelegation,
+  buildMandateDelegations,
+  signMandateDelegations,
 } from "@/lib/delegation"
 import {
   checkBudget,
@@ -39,7 +40,6 @@ import {
   signMandateAuthorization,
   transferUSDCToSmartAccount,
 } from "@/lib/wallet"
-import type { Delegation } from "@metamask/smart-accounts-kit"
 import { AGENT_ADDRESS, MANDATE_CONTRACT } from "@/lib/constants"
 
 const ACTIVE_KEY = "regent_active_view"
@@ -232,11 +232,19 @@ export function useRegent() {
       refresh(mandate.id)
 
       if (walletAddress) {
-        fetch("/api/mandates", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mandate, ownerAddress: walletAddress }),
-        }).catch(() => {})
+        signMandateAuth({
+          action: "create",
+          mandateId: mandate.id,
+          owner: walletAddress,
+        })
+          .then((auth) =>
+            fetch("/api/mandates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mandate, ownerAddress: walletAddress, auth }),
+            }),
+          )
+          .catch(() => {})
       }
 
       return mandate
@@ -267,17 +275,17 @@ export function useRegent() {
           console.warn("Smart account deployment check failed or skipped:", e)
         }
 
-        // 3. Build & sign ERC-7710 delegation with caveats
-        const rawDelegation = buildMandateDelegation({
+        // 3. Build & sign ERC-7710 delegations with caveats (approve + swap)
+        const rawDelegations = buildMandateDelegations({
           smartAccountAddress: smartAccount.address,
           agentAddress: AGENT_ADDRESS || undefined,
           mandate,
           mandateContractAddress: MANDATE_CONTRACT ? (MANDATE_CONTRACT as Hex) : undefined,
         })
 
-        const signedDelegation = await signMandateDelegation(smartAccount, rawDelegation)
-        addActivity(mandateId, "permission_granted", "ERC-7710 delegation signed by Smart Account.", {
-          delegationHash: signedDelegation.signature,
+        const signedDelegations = await signMandateDelegations(smartAccount, rawDelegations)
+        addActivity(mandateId, "permission_granted", "ERC-7710 delegations (approve + swap) signed by Smart Account.", {
+          delegationHash: signedDelegations.swap.signature,
         })
 
         let onChainId: Hex | undefined
@@ -297,20 +305,29 @@ export function useRegent() {
         // Update local mandate record
         const updated = updateMandateDelegation(mandateId, {
           delegatorAddress: walletAddress,
-          delegationHash: signedDelegation.signature,
+          delegationHash: signedDelegations.swap.signature,
           smartAccountAddress: smartAccount.address,
           onChainId,
-          delegation: signedDelegation,
+          delegation: signedDelegations.swap,
+          delegations: signedDelegations,
           txHash,
         })
 
         // Sync with database API
         if (updated) {
-          fetch("/api/mandates", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mandate: updated, ownerAddress: walletAddress }),
-          }).catch(() => {})
+          signMandateAuth({
+            action: "create",
+            mandateId: updated.id,
+            owner: walletAddress,
+          })
+            .then((auth) =>
+              fetch("/api/mandates", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mandate: updated, ownerAddress: walletAddress, auth }),
+              }),
+            )
+            .catch(() => {})
         }
       } else {
         await wait(900)
@@ -431,16 +448,28 @@ export function useRegent() {
             `Confirmed. Spent ${result.spentAmount} ${mandate.sourceAsset}, received ${result.receivedAmount} ${mandate.targetAsset}.`,
             { transactionHash: result.transactionHash, source: result.source },
           )
-          fetch("/api/mandates", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: mandateId,
-              status: "completed",
-              spent: mandate.spent + result.spentAmount,
-              txHash: result.transactionHash,
-            }),
-          }).catch(() => {})
+          if (walletAddress) {
+            signMandateAuth({
+              action: "update",
+              mandateId,
+              owner: walletAddress,
+            })
+              .then((auth) =>
+                fetch("/api/mandates", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    id: mandateId,
+                    status: "completed",
+                    spent: mandate.spent + result.spentAmount,
+                    txHash: result.transactionHash,
+                    ownerAddress: walletAddress,
+                    auth,
+                  }),
+                }),
+              )
+              .catch(() => {})
+          }
         } else {
           updateMandateStatus(mandateId, "rejected")
           addActivity(mandateId, "confirming_transaction", result.error ?? "Execution failed.")
@@ -450,7 +479,7 @@ export function useRegent() {
         setIsAgentRunning(false)
       }
     },
-    [decision, isAgentRunning, refresh],
+    [decision, isAgentRunning, refresh, walletAddress],
   )
 
   const revoke = useCallback(
@@ -468,9 +497,9 @@ export function useRegent() {
           )
         }
 
-        if (mandate.delegation) {
+        if (mandate.delegations || mandate.delegation) {
           const res = await disableDelegationOnChain(
-            mandate.delegation as Delegation,
+            (mandate.delegations || mandate.delegation) as Parameters<typeof disableDelegationOnChain>[0],
             walletAddress,
           ).catch((err) => {
             console.warn("Failed to disable delegation on-chain:", err)
@@ -480,18 +509,28 @@ export function useRegent() {
             addActivity(
               mandateId,
               "mandate_revoked",
-              "ERC-7710 delegation disabled via Smart Account UserOp in DelegationManager.",
+              "ERC-7710 delegations disabled via Smart Account UserOp in DelegationManager.",
             )
           } else if (res?.message) {
             addActivity(mandateId, "mandate_revoked", res.message)
           }
         }
 
-        fetch("/api/mandates", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: mandateId, status: "revoked" }),
-        }).catch(() => {})
+        if (walletAddress) {
+          signMandateAuth({
+            action: "update",
+            mandateId,
+            owner: walletAddress,
+          })
+            .then((auth) =>
+              fetch("/api/mandates", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: mandateId, status: "revoked", ownerAddress: walletAddress, auth }),
+              }),
+            )
+            .catch(() => {})
+        }
       }
 
       updateMandateStatus(mandateId, "revoked")

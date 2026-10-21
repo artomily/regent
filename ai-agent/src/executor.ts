@@ -62,6 +62,68 @@ export interface CalldataBundle {
   mandateContractAddress: Address
 }
 
+export type ParsedMandateDelegations =
+  | { type: "pair"; approve: Delegation; swap: Delegation }
+  | { type: "legacy"; delegation: Delegation }
+
+export function parseMandateDelegations(mandateOrRaw: unknown): ParsedMandateDelegations | null {
+  if (!mandateOrRaw) return null
+
+  let raw = mandateOrRaw
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  if (typeof raw !== "object" || raw === null) {
+    return null
+  }
+
+  const obj = raw as Record<string, unknown>
+  if ("delegations" in obj && obj.delegations) {
+    const fromDelegations = parseMandateDelegations(obj.delegations)
+    if (fromDelegations) return fromDelegations
+  }
+
+  if ("approve" in obj && "swap" in obj) {
+    const approve = parseDelegation(obj.approve)
+    const swap = parseDelegation(obj.swap)
+    if (approve && swap) {
+      return { type: "pair", approve, swap }
+    }
+  }
+
+  if ("delegation" in obj && obj.delegation) {
+    let sub = obj.delegation
+    if (typeof sub === "string") {
+      try {
+        sub = JSON.parse(sub)
+      } catch {}
+    }
+    if (typeof sub === "object" && sub !== null && "approve" in sub && "swap" in sub) {
+      const approve = parseDelegation((sub as { approve: unknown }).approve)
+      const swap = parseDelegation((sub as { swap: unknown }).swap)
+      if (approve && swap) {
+        return { type: "pair", approve, swap }
+      }
+    }
+    const legacy = parseDelegation(obj.delegation)
+    if (legacy) {
+      return { type: "legacy", delegation: legacy }
+    }
+  }
+
+  const single = parseDelegation(raw)
+  if (single) {
+    return { type: "legacy", delegation: single }
+  }
+
+  return null
+}
+
 export function parseDelegation(raw: unknown): Delegation | null {
   if (!raw) return null
   try {
@@ -102,13 +164,19 @@ export function resolveFeeTier(route: Route): number {
 
 /**
  * Builds the swap calldata (approve + exactInputSingle on SwapRouter02)
- * for DelegationManager.redeemDelegations (exactly 2 executions: [approve, swap]),
- * and builds RegentMandate.recordExecution calldata for separate agent execution.
+ * for DelegationManager.redeemDelegations.
+ *
+ * For two narrow delegations (approve + swap):
+ * - delegations: [[approveDelegation], [swapDelegation]]
+ * - modes: [SingleDefault, SingleDefault]
+ * - executions: [[approveExec], [swapExec]]
+ *
+ * Also builds RegentMandate.recordExecution calldata for agent EOA execution BEFORE redeem.
  */
 export function buildExecutionCalldata(
   mandate: Mandate,
   route: Route,
-  delegation: Delegation,
+  delegations: Delegation | { approve: Delegation; swap: Delegation },
   overrides?: {
     mandateContract?: Address
     swapRouter?: Address
@@ -117,6 +185,20 @@ export function buildExecutionCalldata(
     delegationManagerAddress?: Address
   },
 ): CalldataBundle {
+  const isPair = Boolean(
+    delegations &&
+      typeof delegations === "object" &&
+      "approve" in delegations &&
+      "swap" in delegations,
+  )
+
+  const approveDelegation = isPair
+    ? (delegations as { approve: Delegation }).approve
+    : (delegations as Delegation)
+  const swapDelegation = isPair
+    ? (delegations as { swap: Delegation }).swap
+    : (delegations as Delegation)
+
   const swapRouter = overrides?.swapRouter ?? UNISWAP_SWAP_ROUTER_02_BASE_SEPOLIA
   const usdc = overrides?.usdcAddress ?? BASE_SEPOLIA_USDC
   const weth = overrides?.wethAddress ?? BASE_SEPOLIA_WETH
@@ -136,7 +218,7 @@ export function buildExecutionCalldata(
   })
 
   // 2. Exact input swap on SwapRouter02
-  const recipient = (mandate.smartAccountAddress || mandate.delegatorAddress || delegation.delegator) as Address
+  const recipient = (mandate.smartAccountAddress || mandate.delegatorAddress || swapDelegation.delegator) as Address
   const minReceivedUnits = Math.max(0, route.outputAmount * (1 - route.slippage / 100))
   const amountOutMinimum = parseUnits(minReceivedUnits.toFixed(18), 18)
   const fee = resolveFeeTier(route)
@@ -157,17 +239,22 @@ export function buildExecutionCalldata(
     ],
   })
 
-  // The redeem delegation batch: exactly [USDC.approve(router), router.exactInputSingle]
-  const executions: ExecutionStruct[] = [
-    createExecution({ target: usdc, value: 0n, callData: approveCalldata }),
-    createExecution({ target: swapRouter, value: 0n, callData: swapCalldata }),
-  ]
+  // Individual executions: [USDC.approve(router), router.exactInputSingle]
+  const approveExec = createExecution({ target: usdc, value: 0n, callData: approveCalldata })
+  const swapExec = createExecution({ target: swapRouter, value: 0n, callData: swapCalldata })
+  const executions: ExecutionStruct[] = [approveExec, swapExec]
 
-  const redeemCalldata = contracts.DelegationManager.encode.redeemDelegations({
-    delegations: [[delegation]],
-    modes: [ExecutionMode.BatchDefault],
-    executions: [executions],
-  })
+  const redeemCalldata = isPair
+    ? contracts.DelegationManager.encode.redeemDelegations({
+        delegations: [[approveDelegation], [swapDelegation]],
+        modes: [ExecutionMode.SingleDefault, ExecutionMode.SingleDefault],
+        executions: [[approveExec], [swapExec]],
+      })
+    : contracts.DelegationManager.encode.redeemDelegations({
+        delegations: [[approveDelegation]],
+        modes: [ExecutionMode.BatchDefault],
+        executions: [executions],
+      })
 
   // 3. RegentMandate.recordExecution (executed separately by the agent EOA / relayer)
   const onChainIdHex: Hex = mandate.onChainId && mandate.onChainId.startsWith("0x") && mandate.onChainId.length === 66
@@ -308,14 +395,24 @@ export async function executeRoute(
     }
   }
 
-  const delegation = parseDelegation(mandate.delegation)
-  if (!delegation) {
+  const delegationsResult = parseMandateDelegations(mandate)
+  if (!delegationsResult) {
     return failure("Missing or invalid signed delegation in mandate for execution", mode)
   }
 
-  const bundle = buildExecutionCalldata(mandate, route, delegation, {
-    mandateContract: mandateContractAddress,
-  })
+  if (delegationsResult.type === "legacy") {
+    return failure(
+      "Refused: legacy single delegation is unsupported for live execution; two delegations (approve and swap) required",
+      mode,
+    )
+  }
+
+  const bundle = buildExecutionCalldata(
+    mandate,
+    route,
+    { approve: delegationsResult.approve, swap: delegationsResult.swap },
+    { mandateContract: mandateContractAddress },
+  )
   const rpcUrl = options?.rpcUrl ?? RPC_URL
 
   if (mode === "direct") {

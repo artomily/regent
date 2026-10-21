@@ -50,7 +50,7 @@ const STEPS = [
     num: "02",
     icon: FileSignature,
     title: "Authorize Regent",
-    body: "Sign the boundaries (EIP-712) from your Smart Account. You stay owner; Regent gets a narrow leash.",
+    body: "Sign dual ERC-7710 delegations (approve + swap) from your Smart Account. You stay owner; Regent gets a narrow leash.",
   },
   {
     num: "03",
@@ -85,7 +85,7 @@ const METRICS = [
   {
     value: "84532",
     label: "Base Sepolia",
-    desc: "Target chain with EIP-7702 gas abstraction",
+    desc: "Target chain with ERC-4337 and ERC-7710 delegation",
   },
 ]
 
@@ -190,7 +190,7 @@ export default function Landing() {
           {/* Top row: floating micro-pills */}
           <div className="flex flex-wrap items-center justify-end gap-2 text-[11px] font-mono tracking-wider text-white/70 uppercase">
             <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 backdrop-blur-md">
-              ERC-7710 Delegation
+              Dual ERC-7710 Delegations
             </span>
             <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 backdrop-blur-md">
               Venice AI Reasoning

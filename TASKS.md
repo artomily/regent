@@ -13,14 +13,15 @@ Status board for Regent. Completed work is kept for context; unchecked items are
 - [x] Dashboard — mandate card with budget progress, live activity feed, route comparison with breach labeling, execution result, history
 - [x] Mandate flow — define → review ("mandate of authority" deed) → authorize (EIP-712 via MetaMask when connected; simulated otherwise)
 - [x] Wallet connect (Base Sepolia switch/add), revoke mandate, decision/result persistence across reloads
-- [x] Docs: CLAUDE.md, ARCHITECTURE.md, README, per-workspace READMEs
+- [x] Wire real dual ERC-7710 delegation (approve + swap) via `@metamask/smart-accounts-kit` with narrow caveats (`AllowedCalldataEnforcer`, `ERC20BalanceChangeEnforcer`, `LimitedCallsEnforcer`, `AllowedTargetsEnforcer`)
+- [x] ai-agent: dual delegation redemption via `SingleDefault` modes in a single transaction, with `recordExecution` enforced prior to redemption
+- [x] Live DEX quotes via Uniswap V3 QuoterV2 on Base Sepolia with fallback
+- [x] Cryptographic API authentication for `/api/mandates` via EIP-191 `personal_sign` and 5-minute replay window
+- [x] Docs: CLAUDE.md, ARCHITECTURE.md, README, Base Sepolia runbook, per-workspace READMEs
 
 ## Next
 
 - [ ] Deploy `RegentMandate` to Base Sepolia and commit the address (`script/deploy.sh`, then set `NEXT_PUBLIC_MANDATE_CONTRACT` + `MANDATE_CONTRACT`)
-- [ ] Wire real ERC-7710 delegation via `@metamask/smart-accounts-kit` in the authorize step (deps are installed; today the step signs EIP-712 boundaries)
-- [ ] ai-agent: sign and submit `recordExecution` through the 1Shot relayer with the real calldata (executor currently posts metadata-only payload in live mode)
-- [ ] Live DEX quotes on Base (Aerodrome / Uniswap v3 quoter) replacing simulated spreads
 - [ ] Agent-side mandate store so the service can run autonomously on a schedule (today the frontend triggers evaluation)
 - [ ] Read on-chain execution history (`executionAt`) into the dashboard activity feed when live
 - [ ] Multi-mandate concurrency + per-mandate agent runs

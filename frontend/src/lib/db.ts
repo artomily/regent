@@ -33,6 +33,13 @@ export interface DbMandateRow {
 }
 
 export function mapRowToMandate(row: DbMandateRow): Mandate {
+  const rawDelegation = row.delegation
+  const isPair =
+    rawDelegation &&
+    typeof rawDelegation === "object" &&
+    "approve" in rawDelegation &&
+    "swap" in rawDelegation
+
   return {
     id: row.id,
     goal: row.goal,
@@ -49,6 +56,7 @@ export function mapRowToMandate(row: DbMandateRow): Mandate {
     smartAccountAddress: (row.smart_account_address as `0x${string}`) || undefined,
     onChainId: (row.on_chain_id as `0x${string}`) || undefined,
     delegation: row.delegation ?? undefined,
+    delegations: isPair ? rawDelegation : undefined,
     txHash: (row.tx_hash as `0x${string}`) || undefined,
   }
 }
