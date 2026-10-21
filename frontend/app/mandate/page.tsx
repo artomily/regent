@@ -119,12 +119,12 @@ export default function MandatePage() {
                   become the mandate clauses.
                 </li>
                 <li>
-                  <strong className="font-semibold text-ink">2. Sign</strong> — your wallet signs the
-                  clauses as EIP-712 typed data. Nothing is custodied.
+                  <strong className="font-semibold text-ink">2. Sign</strong> — your Smart Account signs
+                  two narrow ERC-7710 delegations (approve and swap). Nothing is custodied.
                 </li>
                 <li>
                   <strong className="font-semibold text-ink">3. Delegate</strong> — Regent receives narrow
-                  authority via your Smart Account, never your keys.
+                  authority via ERC-7710 delegation with caveat enforcers, never your keys.
                 </li>
               </ol>
               {!walletAddress && (

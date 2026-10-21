@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const SECTIONS = [
   {
     title: "§1 — Non-custodial by design",
-    body: "Regent never takes custody of your funds or your keys. Authorization happens through a signed EIP-712 mandate and a bounded delegation from your own Smart Account — the agent acts within the clauses you sign, and you can revoke that authority at any time, effective immediately, on-chain.",
+    body: "Regent never takes custody of your funds or your keys. Authorization happens through dual ERC-7710 delegations (one for USDC approval, one for Uniswap execution) bounded by contract caveats from your own Smart Account — the agent acts within the clauses you sign, and you can revoke that authority at any time, effective immediately, on-chain.",
   },
   {
     title: "§2 — Experimental software, no warranty",
@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     title: "§5 — Where your data lives",
-    body: "Mandates and the activity/audit trail are stored only in your browser's local storage — there is no backend database. Clearing your browser data or switching devices means that history is gone. Regent does not run analytics or tracking scripts.",
+    body: "Mandates and the activity trail are stored in your browser's local storage and optionally synchronized to an authenticated Neon Postgres database when configured. Mutating API requests require an EIP-191 personal_sign signature by the mandate owner within a 5-minute replay window.",
   },
   {
     title: "§6 — Source and terms",
