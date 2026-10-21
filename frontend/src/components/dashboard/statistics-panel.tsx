@@ -1,7 +1,9 @@
 "use client"
 
-import { BarChart2, ChevronDown } from "lucide-react"
+import { ArrowRight, BarChart2, ChevronDown } from "lucide-react"
+import Link from "next/link"
 import { useMemo, useState } from "react"
+import { formatAmount } from "@/lib/format"
 import type { ActivityEvent, Mandate } from "@/lib/types"
 
 interface StatisticsPanelProps {
@@ -14,24 +16,48 @@ interface DayData {
   label: string
   isToday: boolean
   hasData: boolean
+  spent: number
+  executions: number
   spentRatio: number // 0 to 1
-  receivedRatio: number // 0 to 1
-  spentPct: number
-  receivedPct: number
+  execRatio: number // 0 to 1
   tooltipText?: string
   tooltipVariant?: "ink" | "lime"
+}
+
+function parseSpentFromEvent(ev: ActivityEvent): number {
+  if (typeof ev.metadata?.spentAmount === "number") {
+    return ev.metadata.spentAmount
+  }
+  const match = ev.message.match(/Spent\s+([0-9.]+)/i)
+  if (match) {
+    const val = parseFloat(match[1])
+    return isNaN(val) ? 0 : val
+  }
+  return 0
+}
+
+function isExecutionEvent(ev: ActivityEvent): boolean {
+  return ev.step === "confirming_transaction" || ev.step === "executing_swap"
 }
 
 export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps) {
   const [period, setPeriod] = useState<"7d" | "30d" | "all">("7d")
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null)
 
-  // Derive per-day data from activityLog & mandates
+  // Derive per-day real data from activityLog & mandates
   const daysData = useMemo<DayData[]>(() => {
     const days: DayData[] = []
     const now = new Date()
 
-    // Build the past 8 days
+    // 1. Gather raw execution data per day across the past 8 days
+    const rawDays: Array<{
+      key: string
+      label: string
+      isToday: boolean
+      spent: number
+      executions: number
+    }> = []
+
     for (let i = 7; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(d.getDate() - i)
@@ -41,85 +67,100 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
       const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
       const label = d.toLocaleDateString("en-US", { day: "numeric", month: "short" })
 
-      // Check events on this day
+      // Execution events from activityLog on this day
       const dayEvents = activityLog.filter(
         (ev) => ev.timestamp >= dayStart && ev.timestamp < dayEnd,
       )
-      const dayMandates = mandates.filter(
-        (m) => m.createdAt >= dayStart && m.createdAt < dayEnd,
-      )
+      const executionEvents = dayEvents.filter(isExecutionEvent)
 
-      const hasEvents = dayEvents.length > 0 || dayMandates.length > 0
-      const totalSpent = dayMandates.reduce((acc, m) => acc + (m.spent || 0), 0)
-      const totalBudget = dayMandates.reduce((acc, m) => acc + (m.budget || 0), 0)
+      let daySpent = 0
+      let dayExecutions = 0
+      const handledMandateIds = new Set<string>()
 
-      let spentRatio = 0
-      let receivedRatio = 0
-      let spentPct = 0
-      let receivedPct = 0
-
-      if (hasEvents) {
-        if (totalBudget > 0) {
-          spentRatio = Math.min(1, Math.max(0.2, totalSpent / totalBudget))
-          receivedRatio = Math.min(spentRatio * 0.7, 0.5)
-        } else {
-          // Normal activity without spend
-          spentRatio = Math.min(0.85, 0.3 + dayEvents.length * 0.15)
-          receivedRatio = Math.max(0.15, spentRatio * 0.5)
-        }
-        spentPct = Math.round(spentRatio * 100)
-        receivedPct = Math.round(receivedRatio * 100)
+      for (const ev of executionEvents) {
+        daySpent += parseSpentFromEvent(ev)
+        dayExecutions += 1
+        handledMandateIds.add(ev.mandateId)
       }
 
-      days.push({
+      // Also account for completed or spent mandates created on this day that might not be in activityLog
+      const dayMandates = mandates.filter(
+        (m) =>
+          m.createdAt >= dayStart &&
+          m.createdAt < dayEnd &&
+          !handledMandateIds.has(m.id) &&
+          (m.spent > 0 || m.status === "completed"),
+      )
+
+      for (const m of dayMandates) {
+        daySpent += m.spent || 0
+        dayExecutions += 1
+      }
+
+      rawDays.push({
         key,
         label,
         isToday: i === 0,
-        hasData: hasEvents,
-        spentRatio,
-        receivedRatio,
-        spentPct,
-        receivedPct,
-        tooltipText: hasEvents ? `${spentPct}%` : undefined,
-        tooltipVariant: i % 2 === 0 ? "ink" : "lime",
+        spent: daySpent,
+        executions: dayExecutions,
       })
     }
 
-    // If completely fresh (no data in any day), provide a graceful demo visualization
-    // so the reference's signature capsules and badges render nicely
-    const anyData = days.some((d) => d.hasData)
-    if (!anyData) {
-      // Graceful sample distribution patterned after the reference image
-      const referencePresets = [
-        { hasData: true, spentRatio: 0.85, receivedRatio: 0.45, pct: 85, variant: "ink" as const },
-        { hasData: true, spentRatio: 0.58, receivedRatio: 0.28, pct: 58, variant: "lime" as const },
-        { hasData: true, spentRatio: 0.72, receivedRatio: 0.34, pct: 72, variant: "ink" as const },
-        { hasData: false, spentRatio: 0, receivedRatio: 0, pct: 0, variant: "ink" as const },
-        { hasData: true, spentRatio: 0.87, receivedRatio: 0.48, pct: 87, variant: "ink" as const },
-        { hasData: false, spentRatio: 0, receivedRatio: 0, pct: 0, variant: "lime" as const },
-        { hasData: true, spentRatio: 0.65, receivedRatio: 0.38, pct: 65, variant: "lime" as const },
-        { hasData: true, spentRatio: 0.52, receivedRatio: 0.30, pct: 52, variant: "ink" as const },
-      ]
+    // 2. Normalize against the real maximum day in the period
+    const maxSpent = Math.max(...rawDays.map((d) => d.spent), 0)
+    const maxExecutions = Math.max(...rawDays.map((d) => d.executions), 0)
 
-      return days.map((d, index) => {
-        const preset = referencePresets[index]
-        return {
-          ...d,
-          hasData: preset.hasData,
-          spentRatio: preset.spentRatio,
-          receivedRatio: preset.receivedRatio,
-          spentPct: preset.pct,
-          receivedPct: Math.round(preset.receivedRatio * 100),
-          tooltipText: index === 4 ? "87%" : index === 3 ? "32%" : undefined,
-          tooltipVariant: preset.variant,
+    for (const raw of rawDays) {
+      const hasData = raw.spent > 0 || raw.executions > 0
+      const spentRatio = maxSpent > 0 ? raw.spent / maxSpent : 0
+      const execRatio = maxExecutions > 0 ? raw.executions / maxExecutions : 0
+
+      let tooltipText: string | undefined = undefined
+      if (hasData) {
+        if (raw.spent > 0 && raw.executions > 0) {
+          tooltipText = `${formatAmount(raw.spent)} USDC (${raw.executions} ${raw.executions === 1 ? "exec" : "execs"})`
+        } else if (raw.spent > 0) {
+          tooltipText = `${formatAmount(raw.spent)} USDC`
+        } else {
+          tooltipText = `${raw.executions} ${raw.executions === 1 ? "exec" : "execs"}`
         }
+      }
+
+      days.push({
+        key: raw.key,
+        label: raw.label,
+        isToday: raw.isToday,
+        hasData,
+        spent: raw.spent,
+        executions: raw.executions,
+        spentRatio,
+        execRatio,
+        tooltipText,
+        tooltipVariant: raw.executions > 0 && raw.spent === 0 ? "lime" : "ink",
       })
     }
 
     return days
   }, [activityLog, mandates])
 
-  const yTicks = [1.0, 0.8, 0.6, 0.4, 0.2]
+  const maxSpentInPeriod = useMemo(
+    () => Math.max(...daysData.map((d) => d.spent), 0),
+    [daysData],
+  )
+
+  const hasAnyData = useMemo(() => daysData.some((d) => d.hasData), [daysData])
+
+  // Derive real scale ticks if data exists, otherwise omit ticks
+  const yTicks = useMemo(() => {
+    if (maxSpentInPeriod <= 0) return []
+    return [
+      maxSpentInPeriod,
+      maxSpentInPeriod * 0.75,
+      maxSpentInPeriod * 0.5,
+      maxSpentInPeriod * 0.25,
+      0,
+    ]
+  }, [maxSpentInPeriod])
 
   return (
     <section
@@ -135,15 +176,15 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
           <h2 className="font-display text-2xl font-light tracking-tight text-ink">Statistics</h2>
         </div>
 
-        {/* Legend */}
+        {/* Legend: matches what is actually plotted */}
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-ink" aria-hidden="true" />
-            <span className="text-xs font-medium text-ink">Budget spent</span>
+            <span className="text-xs font-medium text-ink">Budget spent (USDC)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-lime" aria-hidden="true" />
-            <span className="text-xs font-medium text-ink">Output volume</span>
+            <span className="text-xs font-medium text-ink">Executions</span>
           </div>
         </div>
 
@@ -161,24 +202,53 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
       </div>
 
       {/* Capsule Bar Chart Area */}
-      <div className="mt-8 flex flex-1 items-end gap-3 sm:gap-6">
-        {/* Y-Axis Scale */}
-        <div className="flex h-64 flex-col justify-between pb-7 font-mono text-[11px] text-muted tnum pr-2 select-none">
-          {yTicks.map((val) => (
-            <span key={val}>{val.toFixed(1)}</span>
-          ))}
-          <span>0.0</span>
-        </div>
+      <div className="relative mt-8 flex flex-1 items-end gap-3 sm:gap-6">
+        {/* Y-Axis Scale (derived from real scale, or omitted if empty) */}
+        {yTicks.length > 0 && (
+          <div className="flex h-64 flex-col justify-between pb-7 font-mono text-[11px] text-muted tnum pr-2 select-none">
+            {yTicks.map((val, idx) => (
+              <span key={idx}>
+                {val > 0 ? `${formatAmount(val)}` : "0.00"}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Bars Container */}
         <div className="relative flex h-64 flex-1 items-end justify-between gap-1.5 sm:gap-3 pb-7">
           {/* Horizontal Gridlines */}
           <div className="pointer-events-none absolute inset-x-0 top-0 bottom-7 flex flex-col justify-between">
-            {yTicks.map((val) => (
-              <div key={val} className="w-full border-b border-edge/40" />
-            ))}
-            <div className="w-full border-b border-edge/60" />
+            {yTicks.length > 0 ? (
+              yTicks.map((_, idx) => (
+                <div key={idx} className="w-full border-b border-edge/40" />
+              ))
+            ) : (
+              <>
+                <div className="w-full border-b border-edge/30" />
+                <div className="w-full border-b border-edge/30" />
+                <div className="w-full border-b border-edge/30" />
+                <div className="w-full border-b border-edge/60" />
+              </>
+            )}
           </div>
+
+          {/* Empty State Callout when there is no data */}
+          {!hasAnyData && (
+            <div className="pointer-events-auto absolute inset-0 z-30 flex flex-col items-center justify-center p-4 text-center">
+              <div className="rounded-2xl border border-edge bg-surface/90 px-5 py-3.5 shadow-sm backdrop-blur-sm">
+                <p className="text-xs font-medium text-ink">
+                  No executions yet - authorize a mandate and run the agent
+                </p>
+                <Link
+                  href="/mandate"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-ink underline underline-offset-4 hover:opacity-80"
+                >
+                  <span>Create a mandate</span>
+                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Day Columns */}
           {daysData.map((day) => {
@@ -189,8 +259,8 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
                 onClick={() => setSelectedDayKey(isSelected ? null : day.key)}
                 className="group relative flex h-full flex-1 cursor-pointer flex-col items-center justify-end"
               >
-                {/* Floating Tooltip Pill (like in the reference) */}
-                {(day.tooltipText || isSelected) && (
+                {/* Floating Tooltip Pill (shows real values) */}
+                {(day.tooltipText || (isSelected && day.hasData)) && (
                   <div
                     className={`absolute z-20 transition-transform ${
                       day.tooltipVariant === "lime"
@@ -198,34 +268,36 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
                         : "bg-ink text-pure-white"
                     } -top-3 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-bold shadow-md whitespace-nowrap tnum`}
                     style={{
-                      bottom: day.hasData ? `${Math.min(95, day.spentRatio * 100 + 4)}%` : "50%",
+                      bottom: day.hasData ? `${Math.min(95, Math.max(18, day.spentRatio * 100 + 4))}%` : "50%",
                       top: "auto",
                     }}
                   >
-                    {day.tooltipText ?? `${day.spentPct}%`}
+                    {day.tooltipText}
                   </div>
                 )}
 
                 {/* Vertical Bar Capsule */}
                 <div className="relative flex h-full w-full max-w-7 sm:max-w-9 items-end justify-center">
-                  {day.hasData ? (
+                  {day.hasData && (day.spentRatio > 0 || day.execRatio > 0) ? (
                     <div
                       className="relative w-full rounded-full overflow-hidden bg-ink transition-transform group-hover:scale-105 shadow-xs"
-                      style={{ height: `${Math.max(15, day.spentRatio * 100)}%` }}
+                      style={{ height: `${Math.max(16, Math.min(100, Math.max(day.spentRatio, day.execRatio) * 100))}%` }}
                     >
                       {/* Upper ink portion with value dot */}
                       <div className="absolute top-2 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full bg-pure-white/80" />
 
-                      {/* Lower lime portion */}
-                      <div
-                        className="absolute bottom-0 inset-x-0 rounded-b-full bg-lime"
-                        style={{
-                          height: `${Math.max(20, (day.receivedRatio / day.spentRatio) * 100)}%`,
-                        }}
-                      >
-                        {/* Middle dot at boundary */}
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full bg-ink" />
-                      </div>
+                      {/* Lower lime portion representing executions */}
+                      {day.execRatio > 0 && (
+                        <div
+                          className="absolute bottom-0 inset-x-0 rounded-b-full bg-lime"
+                          style={{
+                            height: `${Math.max(20, Math.min(100, (day.execRatio / Math.max(day.spentRatio, day.execRatio, 0.01)) * 100))}%`,
+                          }}
+                        >
+                          {/* Dot at boundary */}
+                          <div className="absolute top-2 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full bg-ink" />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* Dashed Empty Capsule for days with no activity */
