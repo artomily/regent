@@ -1,11 +1,12 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  CheckCircle2,
+  Bot,
   Clock,
   FileSignature,
   Gauge,
-  Play,
+  Menu,
+  Plus,
   ScrollText,
   Send,
   ShieldCheck,
@@ -15,27 +16,39 @@ import Link from "next/link"
 import { Hero3D } from "@/components/hero-3d"
 import { SiteFooter } from "@/components/site-footer"
 
+const NAV = [
+  { href: "#clauses", label: "Clauses" },
+  { href: "#how", label: "How it works" },
+  { href: "#trust", label: "Security" },
+  { href: "#faq", label: "FAQ" },
+]
+
+const CREATE_HREF = "/dashboard?new=1"
+
 const BOUNDARIES = [
   {
     clause: "§1",
     icon: Gauge,
     title: "Budget ceiling",
     sample: "100.00 USDC",
-    body: "Cumulative spend is strictly capped. The contract reverts any transaction that crosses it — BudgetExceeded.",
+    revert: "BudgetExceeded",
+    body: "Cumulative spend is capped. Any execution that would cross the ceiling reverts.",
   },
   {
     clause: "§2",
     icon: ShieldCheck,
     title: "Slippage ceiling",
-    sample: "≤ 2.00% max",
-    body: "Every route is re-checked against your tolerance before execution — SlippageExceeded.",
+    sample: "≤ 2.00%",
+    revert: "SlippageExceeded",
+    body: "Every route is re-checked against your tolerance before it is allowed to settle.",
   },
   {
     clause: "§3",
     icon: Clock,
     title: "Automatic expiry",
-    sample: "24h scheduled",
-    body: "Authority ends on schedule, automatically on-chain. No manual revocation needed — Expired.",
+    sample: "24h",
+    revert: "Expired",
+    body: "Authority ends on schedule — both the delegation caveat and the contract stop honouring it.",
   },
 ]
 
@@ -43,530 +56,477 @@ const STEPS = [
   {
     num: "01",
     icon: ScrollText,
-    title: "Create a mandate",
-    body: "A goal, a budget, hard boundaries. Written like a deed, enforced like law.",
+    title: "Write the mandate",
+    body: "A goal, a budget, a slippage ceiling and an expiry. Four clauses, nothing implicit.",
   },
   {
     num: "02",
     icon: FileSignature,
-    title: "Authorize Regent",
-    body: "Sign dual ERC-7710 delegations (approve + swap) from your Smart Account. You stay owner; Regent gets a narrow leash.",
+    title: "Sign two delegations",
+    body: "Your MetaMask Smart Account signs narrow ERC-7710 delegations: approve USDC to the router, swap into your own account.",
   },
   {
     num: "03",
     icon: Sparkles,
     title: "Venice evaluates",
-    body: "Venice AI scans DEX routes on Base, compares prices, and reasons about every clause.",
+    body: "Venice AI compares Uniswap quotes on Base Sepolia and explains why a route fits — or why nothing does.",
   },
   {
     num: "04",
     icon: Send,
-    title: "Relayer executes",
-    body: "The selected route settles through the 1Shot relayer with gas abstraction. Breaches revert.",
+    title: "Regent settles",
+    body: "The agent records the spend on RegentMandate and redeems both delegations in one transaction. Breaches revert.",
   },
 ]
 
-const METRICS = [
-  {
-    value: "100%",
-    label: "On-chain enforcement",
-    desc: "Every boundary enforced by contract on Base",
-  },
-  {
-    value: "3x",
-    label: "Redundant verification",
-    desc: "Interface, Venice agent, and smart contract",
-  },
-  {
-    value: "0",
-    label: "Custody risk",
-    desc: "Keys and funds never leave your smart account",
-  },
-  {
-    value: "84532",
-    label: "Base Sepolia",
-    desc: "Target chain with ERC-4337 and ERC-7710 delegation",
-  },
+const FACTS = [
+  { value: "3", label: "Enforcement layers", desc: "Interface, agent service and contract" },
+  { value: "2", label: "Narrow delegations", desc: "Approve and swap, each with its own caveats" },
+  { value: "0", label: "Keys shared", desc: "Regent never holds your keys or custody" },
+  { value: "84532", label: "Base Sepolia", desc: "Chain ID for every mandate today" },
 ]
 
 const TRUST_LAYERS = [
   {
-    tag: "LAYER 01 · CLIENT",
-    title: "Interface guard",
-    file: "frontend/src/hooks/use-regent.ts",
-    body: "Validates all inputs against user limits before any request is generated. Prevents malformed or out-of-boundary actions client-side.",
-    revert: "Pre-flight rejection before broadcast",
+    tag: "Layer 01 · Interface",
+    title: "Pre-flight guard",
+    body: "Validates every input against your limits before anything is signed or sent.",
+    revert: "Rejected before broadcast",
   },
   {
-    tag: "LAYER 02 · AGENT",
-    title: "Venice AI decision guard",
-    file: "ai-agent/src/executor.ts",
-    body: "Venice AI evaluates competitive DEX quotes. The executor service re-validates the chosen route against budget, slippage, and expiry before dispatch.",
-    revert: "Rejects hallucinated or unauthorized routes",
+    tag: "Layer 02 · Agent",
+    title: "Decision guard",
+    body: "Venice picks a route; the executor re-checks budget, slippage and expiry before and after the model answers.",
+    revert: "Rejects out-of-mandate routes",
   },
   {
-    tag: "LAYER 03 · CONTRACT",
-    title: "RegentMandate.sol",
-    file: "contract/src/RegentMandate.sol",
-    body: "On-chain caveat registry on Base Sepolia. Even if the agent service were compromised, the contract unconditionally reverts on clause breach.",
-    revert: "Reverts: BudgetExceeded · SlippageExceeded · Expired",
+    tag: "Layer 03 · Chain",
+    title: "Caveats + RegentMandate",
+    body: "Delegation caveat enforcers pin targets, calldata and balance change; the contract tracks cumulative spend.",
+    revert: "BudgetExceeded · SlippageExceeded · Expired",
+  },
+]
+
+const FAQ = [
+  {
+    q: "Does Regent ever hold my funds?",
+    a: "No. Funds stay in your MetaMask Smart Account. Regent only receives delegations that let it call USDC.approve for the Uniswap router and a single swap shape that must pay out to your own account.",
+  },
+  {
+    q: "What stops the AI from doing something unexpected?",
+    a: "The model only proposes. Its choice is re-validated by the agent service, then the on-chain caveats and the RegentMandate contract refuse anything outside the clauses you signed.",
+  },
+  {
+    q: "Can I stop a mandate early?",
+    a: "Yes. Revoking disables the delegations on the DelegationManager and marks the mandate revoked on RegentMandate, so further redemptions fail.",
+  },
+  {
+    q: "Do I need testnet funds to try it?",
+    a: "No. Without a wallet the whole flow runs in a clearly labelled demo mode. Connect MetaMask on Base Sepolia with faucet USDC to run it for real.",
   },
 ]
 
 export default function Landing() {
   return (
     <div className="min-h-screen bg-canvas text-ink">
-      {/* ── HERO: Full-bleed warm luminous gradient panel modeled on Wellmo ── */}
-      <section className="relative min-h-[94svh] w-full overflow-hidden bg-hero-bg">
-        {/* CSS Gradient mesh background */}
+      {/* ── HERO ── */}
+      <section className="relative overflow-hidden bg-hero-bg text-pure-white">
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="pointer-events-none absolute inset-0"
           style={{
             background: `
-              radial-gradient(ellipse 95% 75% at 80% 10%, var(--color-hero-glow-lime) 0%, transparent 65%),
-              radial-gradient(ellipse 85% 65% at 15% 15%, var(--color-hero-glow-sun) 0%, transparent 55%),
-              radial-gradient(ellipse 70% 50% at 50% 28%, var(--color-hero-glow-amber) 0%, transparent 60%),
-              radial-gradient(circle at 50% 100%, var(--color-hero-shade) 0%, var(--color-hero-bg) 65%, var(--color-hero-amber) 130%)
+              radial-gradient(ellipse 70% 60% at 85% 0%, var(--color-hero-glow-lime) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 50% at 10% 0%, var(--color-hero-glow-sun) 0%, transparent 55%),
+              radial-gradient(ellipse 80% 70% at 50% 110%, var(--color-hero-shade) 0%, transparent 70%)
             `,
           }}
           aria-hidden="true"
         />
 
-        {/* Geometric architectural rings overlay */}
-        <svg
-          className="absolute inset-0 h-full w-full pointer-events-none opacity-20"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <circle cx="35%" cy="30%" r="280" fill="none" stroke="var(--color-lime)" strokeWidth="0.8" strokeDasharray="3 3" />
-          <circle cx="35%" cy="30%" r="460" fill="none" stroke="var(--color-pure-white)" strokeWidth="0.5" />
-          <circle cx="35%" cy="30%" r="680" fill="none" stroke="var(--color-pure-white)" strokeWidth="0.5" />
-          <line x1="35%" y1="0" x2="35%" y2="100%" stroke="var(--color-pure-white)" strokeWidth="0.5" strokeDasharray="3 6" />
-        </svg>
-
-        {/* Ambient 3D canvas orb */}
-        <div className="absolute inset-0 pointer-events-none opacity-45 mix-blend-screen" aria-hidden="true">
-          <Hero3D />
-        </div>
-
-        {/* Top Header inside Hero */}
-        <header className="relative z-20 w-full border-b border-white/10">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+        {/* Nav */}
+        <header className="relative z-20 border-b border-pure-white/10">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
             <Link
               href="/"
-              className="group flex items-baseline gap-1 focus-visible:outline-2 focus-visible:outline-white"
+              className="flex items-baseline gap-1 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pure-white"
             >
-              <span className="font-display text-3xl font-light tracking-[-0.04em] text-white transition-opacity group-hover:opacity-85 sm:text-5xl">
-                REGENT
-              </span>
-              <span className="font-mono text-xs text-lime">®</span>
+              <span className="font-display text-2xl font-light tracking-[-0.04em]">REGENT</span>
+              <span className="font-mono text-[10px] text-lime">®</span>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <nav aria-label="Sections" className="hidden items-center gap-1 rounded-full border border-pure-white/15 bg-pure-white/5 p-1 backdrop-blur-md md:flex">
+              {NAV.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-full px-4 py-1.5 text-xs font-medium text-pure-white/75 transition-colors hover:bg-pure-white/10 hover:text-pure-white"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-2">
               <Link
                 href="/dashboard"
-                className="hidden rounded-full px-4 py-2 text-xs font-medium text-white/80 transition-colors hover:text-white sm:inline-block"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-pure-white px-5 text-xs font-semibold text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pure-white"
               >
-                Dashboard
-              </Link>
-              <Link
-                href="/mandate"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-xs font-semibold text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                Give a mandate
+                Launch app
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
-              <div className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-full border border-white/15 bg-white/5 backdrop-blur-md">
-                <span className="h-0.5 w-4 rounded-full bg-white/80" />
-                <span className="h-0.5 w-4 rounded-full bg-white/80" />
-                <span className="h-0.5 w-4 rounded-full bg-white/80" />
-              </div>
+              <details className="group relative md:hidden">
+                <summary
+                  aria-label="Open menu"
+                  className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-pure-white/15 bg-pure-white/5 backdrop-blur-md [&::-webkit-details-marker]:hidden"
+                >
+                  <Menu className="h-4 w-4" aria-hidden="true" />
+                </summary>
+                <nav
+                  aria-label="Sections"
+                  className="absolute top-12 right-0 flex w-48 flex-col rounded-2xl border border-edge bg-surface p-2 text-ink shadow-lg"
+                >
+                  {NAV.map((item) => (
+                    <a key={item.href} href={item.href} className="rounded-xl px-3 py-2 text-sm hover:bg-panel">
+                      {item.label}
+                    </a>
+                  ))}
+                </nav>
+              </details>
             </div>
           </div>
         </header>
 
-        {/* Hero Content */}
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col justify-between px-4 pt-10 pb-16 sm:px-6 sm:pt-16 sm:pb-24">
-          {/* Top row: floating micro-pills */}
-          <div className="flex flex-wrap items-center justify-end gap-2 text-[11px] font-mono tracking-wider text-white/70 uppercase">
-            <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 backdrop-blur-md">
-              Dual ERC-7710 Delegations
-            </span>
-            <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 backdrop-blur-md">
-              Venice AI Reasoning
-            </span>
-            <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 backdrop-blur-md">
-              MetaMask Smart Accounts
-            </span>
-          </div>
-
-          {/* Middle: Floating Frosted Glass Mandate Card */}
-          <div className="my-10 flex justify-end">
-            <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-ink/40 p-6 shadow-2xl backdrop-blur-xl text-white transition-transform sm:max-w-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-lime animate-pulse-soft" />
-                  <span className="font-mono text-[11px] tracking-widest text-white/80 uppercase">
-                    MANDATE #01
-                  </span>
-                </div>
-                <span className="rounded-full bg-lime px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-ink uppercase">
-                  Active · Guarded
-                </span>
-              </div>
-
-              <div className="mt-5 flex items-baseline justify-between">
-                <div>
-                  <p className="font-display text-5xl font-light tracking-tight text-white sm:text-6xl">
-                    80<span className="text-3xl sm:text-4xl font-normal">%</span>
-                  </p>
-                  <p className="mt-1 text-xs text-white/70">Budget utilized within ceiling</p>
-                </div>
-                <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-mono text-xs font-medium text-lime">
-                  ↑ 15% executed
-                </span>
-              </div>
-
-              {/* Lime Progress Bar */}
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/15 p-0.5">
-                <div
-                  className="h-full rounded-full bg-lime shadow-[0_0_12px_rgba(227,232,42,0.8)] transition-[width] duration-700"
-                  style={{ width: "80%" }}
-                />
-              </div>
-
-              {/* Parameters mini grid */}
-              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 font-mono text-[11px]">
-                <div>
-                  <p className="text-white/60">§1 Budget ceiling</p>
-                  <p className="mt-0.5 font-medium text-white">100.00 USDC</p>
-                </div>
-                <div>
-                  <p className="text-white/60">§2 Slippage limit</p>
-                  <p className="mt-0.5 font-medium text-lime">≤ 2.00% max</p>
-                </div>
-                <div>
-                  <p className="text-white/60">§3 Authority expires</p>
-                  <p className="mt-0.5 font-medium text-white">23h 48m left</p>
-                </div>
-                <div>
-                  <p className="text-white/60">Target venue</p>
-                  <p className="mt-0.5 font-medium text-white">Base Sepolia</p>
-                </div>
-              </div>
+        {/* Hero body */}
+        <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pt-14 pb-10 sm:px-6 lg:grid-cols-12 lg:pt-20">
+          <div className="lg:col-span-7">
+            <div className="animate-rise inline-flex items-center gap-2 rounded-full border border-pure-white/15 bg-pure-white/5 py-1 pr-3 pl-1 text-xs text-pure-white/80 backdrop-blur-md">
+              <span className="rounded-full bg-lime px-2 py-0.5 font-mono text-[10px] font-bold text-ink uppercase">
+                Live
+              </span>
+              MetaMask Smart Accounts × Venice AI on Base Sepolia
             </div>
-          </div>
 
-          {/* Bottom Hero headline and action pills */}
-          <div className="relative max-w-3xl rounded-3xl p-5 sm:p-8 bg-gradient-to-t from-hero-shade/85 via-hero-shade/40 to-transparent backdrop-blur-xs">
-            <h1 className="animate-rise font-display text-4xl font-light tracking-[-0.03em] text-white sm:text-6xl md:text-7xl">
+            <h1 className="animate-rise mt-6 font-display text-5xl leading-[1.02] font-light tracking-[-0.04em] [animation-delay:80ms] sm:text-7xl lg:text-[5.5rem]">
               You give the mandate.
               <br />
-              <span className="font-normal text-white">Regent executes.</span>
+              <span className="text-lime">Regent</span> executes.
             </h1>
 
-            <p className="animate-rise mt-5 max-w-xl text-base font-normal leading-relaxed text-white/90 [animation-delay:120ms] sm:text-lg">
-              An AI agent that acts on your behalf inside hard, signed boundaries — budget, slippage,
-              expiry. Never beyond. Built on MetaMask Smart Accounts, Venice AI, and the 1Shot relayer.
+            <p className="animate-rise mt-6 max-w-xl text-base leading-relaxed text-pure-white/75 [animation-delay:160ms] sm:text-lg">
+              An AI agent that trades on your behalf inside hard, signed boundaries — budget, slippage, expiry.
+              Never beyond them, and never with your keys.
             </p>
 
-            <div className="animate-rise mt-8 flex flex-wrap items-center gap-3 [animation-delay:200ms]">
+            <div className="animate-rise mt-9 flex flex-wrap items-center gap-3 [animation-delay:240ms]">
               <Link
-                href="/mandate"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-ink transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                href={CREATE_HREF}
+                className="group inline-flex h-13 items-center gap-3 rounded-full bg-pure-white py-1.5 pr-1.5 pl-6 text-sm font-semibold text-ink shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 Give your first mandate
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-pure-white transition-transform group-hover:rotate-45">
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </span>
               </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex h-12 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20"
+              <a
+                href="#how"
+                className="inline-flex h-13 items-center rounded-full border border-pure-white/20 px-6 text-sm font-medium text-pure-white transition-colors hover:bg-pure-white/10"
               >
-                <Play className="h-4 w-4 text-lime" aria-hidden="true" />
-                Launch dashboard
-              </Link>
+                See how it works
+              </a>
             </div>
+
+            <dl className="animate-rise mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-pure-white/10 pt-6 [animation-delay:320ms]">
+              {[
+                ["3×", "redundant checks"],
+                ["2", "ERC-7710 delegations"],
+                ["0", "keys handed over"],
+              ].map(([value, label]) => (
+                <div key={label}>
+                  <dt className="sr-only">{label}</dt>
+                  <dd className="tnum font-mono text-2xl text-pure-white">{value}</dd>
+                  <dd className="mt-1 text-xs text-pure-white/60">{label}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          {/* Mandate card over the orbit orb */}
+          <div className="relative lg:col-span-5">
+            <div className="pointer-events-none absolute -inset-16 opacity-70" aria-hidden="true">
+              <Hero3D />
+            </div>
+
+            <div className="relative mx-auto w-full max-w-md rounded-3xl border border-pure-white/20 bg-ink/45 p-6 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 font-mono text-[11px] tracking-widest text-pure-white/75 uppercase">
+                  <span className="h-2 w-2 animate-pulse-soft rounded-full bg-lime" />
+                  Mandate #01
+                </span>
+                <span className="rounded-full bg-lime px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-ink uppercase">
+                  Within mandate
+                </span>
+              </div>
+
+              <p className="mt-5 text-sm text-pure-white/80">Swap USDC into ETH at the best route</p>
+
+              <div className="mt-3 flex items-end justify-between">
+                <p className="tnum font-display text-6xl font-light tracking-tight">
+                  64<span className="text-3xl">%</span>
+                </p>
+                <p className="tnum pb-2 text-right font-mono text-xs text-pure-white/70">
+                  64.00 / 100.00 USDC
+                  <br />
+                  budget used
+                </p>
+              </div>
+
+              <div className="mt-3 flex gap-1" role="presentation">
+                {Array.from({ length: 20 }, (_, i) => (
+                  <span key={i} className={`h-6 flex-1 rounded-full ${i < 13 ? "bg-lime" : "bg-pure-white/15"}`} />
+                ))}
+              </div>
+
+              <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-pure-white/10 pt-4 font-mono text-[11px]">
+                <div>
+                  <dt className="text-pure-white/55">§2 Slippage</dt>
+                  <dd className="tnum mt-0.5 text-lime">≤ 2.00%</dd>
+                </div>
+                <div>
+                  <dt className="text-pure-white/55">§3 Expires in</dt>
+                  <dd className="tnum mt-0.5">23h 48m</dd>
+                </div>
+              </dl>
+
+              <div className="mt-5 flex items-start gap-3 rounded-2xl bg-pure-white/10 p-3.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lime text-ink">
+                  <Bot className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p className="text-xs leading-relaxed text-pure-white/80">
+                  <span className="font-semibold text-pure-white">Venice:</span> Uniswap 0.05% pool beats 0.3% by{" "}
+                  <span className="tnum font-mono text-lime">0.41%</span>. Slippage 0.18% — inside §2. Executing.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Oversized wordmark, editorial bleed */}
+        <p
+          className="relative z-0 -mb-[0.2em] text-center font-display text-[22vw] leading-none font-light tracking-[-0.06em] text-pure-white/[0.07] select-none"
+          aria-hidden="true"
+        >
+          REGENT
+        </p>
+      </section>
+
+      {/* ── (01) CLAUSES ── */}
+      <section id="clauses" className="scroll-mt-4 border-t border-edge">
+        <SectionRule num="01" label="The mandate is law" />
+        <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+            <h2 className="font-display text-4xl font-light tracking-[-0.03em] sm:text-6xl lg:col-span-7">
+              Autonomy you can sign. Boundaries you can prove.
+            </h2>
+            <p className="text-base leading-relaxed text-muted lg:col-span-5">
+              Most agents ask for blind trust. Regent asks for a mandate — three clauses checked by the interface,
+              the agent service and the chain alike.
+            </p>
+          </div>
+
+          <div className="mt-14 grid grid-cols-1 divide-y divide-edge border-y border-edge md:grid-cols-3 md:divide-x md:divide-y-0">
+            {BOUNDARIES.map((b) => (
+              <article key={b.clause} className="group p-6 transition-colors hover:bg-panel/60 sm:p-8">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full border border-edge bg-surface transition-colors group-hover:bg-lime">
+                    <b.icon className="h-4.5 w-4.5" aria-hidden="true" />
+                  </span>
+                  <span className="font-mono text-xs text-muted">{b.clause}</span>
+                </div>
+                <p className="tnum mt-10 font-display text-4xl font-light tracking-tight">{b.sample}</p>
+                <h3 className="mt-2 text-base font-semibold">{b.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{b.body}</p>
+                <p className="mt-5 inline-flex rounded-full bg-panel px-2.5 py-1 font-mono text-[11px] text-negative">
+                  revert {b.revert}()
+                </p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── SECTION 01: Problem Statement & The Three Hard Clauses ── */}
-      <section className="border-t border-edge bg-canvas">
-        {/* Hairline sub-header divider */}
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
-          <span className="font-mono text-xs text-muted">(01)</span>
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-lime text-ink shadow-xs">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <span className="font-mono text-xs text-muted">©2026</span>
-        </div>
-
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="text-center">
-            <p className="font-mono text-xs tracking-[0.2em] text-muted uppercase">
-              The mandate is law
-            </p>
-            <h2 className="mt-4 font-display text-3xl font-light tracking-[-0.03em] text-ink sm:text-5xl md:text-6xl">
-              Autonomy you can sign,
-              <br />
-              <span className="font-normal">boundaries you can prove.</span>
+      {/* ── (02) HOW IT WORKS ── */}
+      <section id="how" className="scroll-mt-4 border-t border-edge bg-panel/40">
+        <SectionRule num="02" label="Chain of authority" />
+        <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
+          <div className="max-w-2xl">
+            <h2 className="font-display text-4xl font-light tracking-[-0.03em] sm:text-6xl">
+              From intent to settlement in four steps
             </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted">
-              Most agents ask for blind trust. Regent asks for a mandate — three clauses enforced by the{" "}
-              <span className="font-mono text-ink">RegentMandate</span> smart contract, the agent
-              service, and the interface alike.
+            <p className="mt-4 text-base text-muted">
+              You define and sign. The agent reasons. The chain enforces.
             </p>
           </div>
 
-          {/* Three Clauses Hairline Grid */}
-          <div className="mt-14 grid grid-cols-1 border-t border-b border-edge divide-y md:grid-cols-3 md:divide-y-0 md:divide-x divide-edge bg-panel/30">
-            {BOUNDARIES.map((b) => (
-              <article key={b.clause} className="p-6 sm:p-8 transition-colors hover:bg-panel/60">
+          <ol className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => (
+              <li
+                key={s.num}
+                className={`relative flex flex-col rounded-3xl border p-6 sm:p-7 ${
+                  i === 0 ? "border-ink bg-ink text-pure-white" : "border-edge bg-surface"
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-surface shadow-xs">
-                    <b.icon className="h-4 w-4 text-ink" aria-hidden="true" />
-                  </div>
-                  <span className="font-mono text-xs font-semibold tracking-wider text-muted">
-                    {b.clause}
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                      i === 0 ? "bg-lime text-ink" : "bg-panel"
+                    }`}
+                  >
+                    <s.icon className="h-4 w-4" aria-hidden="true" />
                   </span>
+                  <span className={`font-mono text-xs ${i === 0 ? "text-pure-white/60" : "text-muted"}`}>{s.num}</span>
                 </div>
-                <h3 className="mt-6 text-base font-semibold text-ink">{b.title}</h3>
-                <p className="tnum mt-1 font-mono text-sm font-medium text-ink/80">{b.sample}</p>
-                <p className="mt-3 text-sm leading-relaxed text-muted">{b.body}</p>
+                <h3 className="mt-12 text-lg font-medium">{s.title}</h3>
+                <p className={`mt-2 text-sm leading-relaxed ${i === 0 ? "text-pure-white/70" : "text-muted"}`}>{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ── (03) FACTS ── */}
+      <section className="border-t border-edge">
+        <SectionRule num="03" label="By design" />
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-2 divide-edge px-4 sm:px-6 lg:grid-cols-4 lg:divide-x">
+          {FACTS.map((f) => (
+            <div key={f.label} className="px-2 py-12 sm:px-8 sm:py-16">
+              <p className="tnum font-mono text-5xl font-light tracking-tight sm:text-6xl">{f.value}</p>
+              <p className="mt-3 text-sm font-semibold">{f.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── (04) TRUST MODEL ── */}
+      <section id="trust" className="scroll-mt-4 border-t border-edge bg-panel/40">
+        <SectionRule num="04" label="Defense in depth" />
+        <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+            <h2 className="font-display text-4xl font-light tracking-[-0.03em] sm:text-6xl lg:col-span-7">
+              A bug in one layer cannot move funds beyond your signature.
+            </h2>
+            <p className="text-base leading-relaxed text-muted lg:col-span-5">
+              The redundancy is deliberate. Each layer checks the same clauses independently, so none of them has
+              to be trusted alone.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-4 md:grid-cols-3">
+            {TRUST_LAYERS.map((layer) => (
+              <article key={layer.tag} className="flex flex-col justify-between rounded-3xl border border-edge bg-surface p-6 sm:p-7">
+                <div>
+                  <span className="font-mono text-[11px] tracking-wider text-muted uppercase">{layer.tag}</span>
+                  <h3 className="mt-3 text-lg font-medium">{layer.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{layer.body}</p>
+                </div>
+                <p className="mt-8 rounded-2xl bg-panel px-4 py-3 font-mono text-[11px]">{layer.revert}</p>
               </article>
             ))}
           </div>
 
-          {/* Black Circular Arrow CTA Row */}
-          <div className="mt-12 flex flex-col items-center justify-between gap-6 rounded-2xl border border-edge bg-panel/40 p-6 sm:flex-row sm:p-8">
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-canvas bg-ink text-xs font-bold text-lime">
-                  R
-                </span>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-canvas bg-panel text-xs font-bold text-ink">
-                  V
-                </span>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-canvas bg-lime text-xs font-bold text-ink">
-                  1S
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-ink">Inspect live boundary code</p>
-                <p className="text-xs text-muted">
-                  Every execution checks cumulative budget, slippage, and timestamp.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href="/mandate"
-              aria-label="Create a mandate"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ink text-white shadow-md transition-transform hover:scale-105 active:scale-95"
-            >
-              <ArrowUpRight className="h-6 w-6" aria-hidden="true" />
-            </Link>
-          </div>
-
-          {/* Solidity Revert Preview */}
-          <div className="mt-8 overflow-hidden rounded-2xl border border-edge bg-surface p-4 sm:p-6 shadow-xs max-w-full">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge pb-3">
-              <span className="font-mono text-[11px] tracking-wider text-muted uppercase">
-                contract/src/RegentMandate.sol — on-chain boundary enforcement
+          <div className="mt-6 overflow-hidden rounded-3xl bg-ink p-5 text-pure-white sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pure-white/10 pb-3">
+              <span className="font-mono text-[11px] tracking-wider text-pure-white/60 uppercase">
+                contract/src/RegentMandate.sol
               </span>
-              <span className="rounded-full bg-panel px-2.5 py-0.5 font-mono text-[10px] text-ink">
-                Base Sepolia
-              </span>
+              <span className="rounded-full bg-lime px-2.5 py-0.5 font-mono text-[10px] font-bold text-ink">Base Sepolia</span>
             </div>
-            <pre className="tnum mt-4 overflow-x-auto font-mono text-xs leading-relaxed text-ink/80 max-w-full">
-              <code>{`if (slippageBps > m.maxSlippageBps) revert `}<span className="font-semibold text-negative">SlippageExceeded</span>{`(m.maxSlippageBps, slippageBps);
+            <pre className="tnum mt-4 overflow-x-auto font-mono text-xs leading-relaxed text-pure-white/80">
+              <code>
+                {`if (slippageBps > m.maxSlippageBps) revert `}
+                <span className="text-lime">SlippageExceeded</span>
+                {`(m.maxSlippageBps, slippageBps);
 
 uint256 remaining = m.budget - m.spent;
-if (spendAmount > remaining) revert `}<span className="font-semibold text-negative">BudgetExceeded</span>{`(remaining, spendAmount);
+if (spendAmount > remaining) revert `}
+                <span className="text-lime">BudgetExceeded</span>
+                {`(remaining, spendAmount);
 
-if (block.timestamp >= m.expiry) revert `}<span className="font-semibold text-negative">Expired</span>{`();`}</code>
+if (block.timestamp >= m.expiry) revert `}
+                <span className="text-lime">Expired</span>
+                {`();`}
+              </code>
             </pre>
           </div>
-        </div>
-      </section>
 
-      {/* ── SECTION 02: How It Works (Chain of Authority) ── */}
-      <section className="border-t border-edge bg-panel/30">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
-          <span className="font-mono text-xs text-muted">(02)</span>
-          <span className="font-mono text-xs tracking-wider text-muted uppercase">Chain of Authority</span>
-          <span className="font-mono text-xs text-muted">WORKFLOW</span>
-        </div>
-
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="max-w-2xl">
-            <p className="font-mono text-xs tracking-[0.2em] text-muted uppercase">How it works</p>
-            <h2 className="mt-3 font-display text-3xl font-light tracking-[-0.03em] text-ink sm:text-5xl">
-              From intent to <span className="font-normal">autonomous settlement</span>
-            </h2>
-            <p className="mt-3 text-base text-muted">
-              Four transparent steps. The user drafts and authorizes; the agent evaluates; the relayer
-              settles inside the mandate.
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-edge bg-edge sm:grid-cols-2 md:grid-cols-4">
-            {STEPS.map((s) => (
-              <div key={s.title} className="bg-surface p-6 sm:p-7 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel text-ink">
-                      <s.icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="font-mono text-xs text-muted">{s.num}</span>
-                  </div>
-                  <h3 className="mt-5 text-sm font-semibold text-ink">{s.title}</h3>
-                  <p className="mt-2 text-xs leading-relaxed text-muted">{s.body}</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-edge/60 flex items-center justify-between">
-                  <span className="text-[10px] font-mono tracking-wider text-muted uppercase">Stage {s.num}</span>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-positive" aria-hidden="true" />
-                </div>
-              </div>
+          <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 font-mono text-xs">
+            <span className="font-semibold tracking-wider text-muted uppercase">Built with</span>
+            {["MetaMask Smart Accounts", "Venice AI", "Uniswap v3", "Neon Postgres", "Base Sepolia"].map((name) => (
+              <span key={name} className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
+                {name}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── SECTION 03: Metrics Row ── */}
-      <section className="border-t border-edge bg-canvas">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
-          <span className="font-mono text-xs text-muted">(03)</span>
-          <span className="font-mono text-xs tracking-wider text-muted uppercase">System Metrics</span>
-          <span className="font-mono text-xs text-muted">INTEGRITY</span>
-        </div>
-
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <div className="grid grid-cols-2 border-t border-b border-edge divide-y sm:divide-y-0 sm:grid-cols-4 sm:divide-x divide-edge bg-panel/30">
-            {METRICS.map((m) => (
-              <div key={m.label} className="p-6 sm:p-8 text-center sm:text-left">
-                <p className="tnum font-display text-4xl font-light tracking-tight text-ink sm:text-5xl">
-                  {m.value}
-                </p>
-                <p className="mt-2 text-xs font-semibold text-ink uppercase tracking-wide">
-                  {m.label}
-                </p>
-                <p className="mt-1 text-xs text-muted leading-relaxed">{m.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 04: Trust Model (Defense in Depth) ── */}
-      <section className="border-t border-edge bg-panel/20">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
-          <span className="font-mono text-xs text-muted">(04)</span>
-          <span className="font-mono text-xs tracking-wider text-muted uppercase">Defense in Depth</span>
-          <span className="font-mono text-xs text-muted">TRUST MODEL</span>
-        </div>
-
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="max-w-2xl">
-            <p className="font-mono text-xs tracking-[0.2em] text-muted uppercase">Architecture</p>
-            <h2 className="mt-3 font-display text-3xl font-light tracking-[-0.03em] text-ink sm:text-5xl">
-              Three workspaces, <span className="font-normal">one chain of authority</span>
-            </h2>
-            <p className="mt-3 text-base text-muted">
-              The interface drafts the mandate, the agent reasons about it, the contract enforces it.
-              Redundancy is deliberate — a bug in any one layer cannot move funds beyond the signature.
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {TRUST_LAYERS.map((layer) => (
-              <article
-                key={layer.tag}
-                className="flex flex-col justify-between rounded-2xl border border-edge bg-surface p-6 sm:p-7 shadow-xs transition-shadow hover:shadow-sm"
-              >
-                <div>
-                  <span className="font-mono text-[10px] tracking-wider text-muted uppercase">
-                    {layer.tag}
-                  </span>
-                  <h3 className="mt-2 text-base font-semibold text-ink">{layer.title}</h3>
-                  <code className="mt-1 block font-mono text-xs text-muted">{layer.file}</code>
-                  <p className="mt-4 text-xs leading-relaxed text-muted">{layer.body}</p>
-                </div>
-                <div className="mt-6 rounded-xl border border-edge bg-panel/50 p-3">
-                  <p className="font-mono text-[11px] text-ink">{layer.revert}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          {/* Powered by row */}
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-edge bg-surface p-4 sm:px-6 sm:py-5">
-            <span className="font-mono text-xs font-semibold tracking-wider text-muted uppercase">
-              POWERED BY
-            </span>
-            <div className="flex flex-wrap items-center gap-4 sm:gap-8 font-mono text-xs text-ink">
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
-                MetaMask Smart Accounts
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
-                Venice AI
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
-                1Shot Relayer
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
-                Base Sepolia
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 05: Final CTA ── */}
-      <section className="border-t border-edge bg-canvas">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-edge px-4 py-3 sm:px-6">
-          <span className="font-mono text-xs text-muted">(05)</span>
-          <span className="font-mono text-xs tracking-wider text-muted uppercase">Get Started</span>
-          <span className="font-mono text-xs text-muted">LAUNCH</span>
-        </div>
-
-        <div className="mx-auto w-full max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-lime text-ink shadow-xs">
-            <Sparkles className="h-6 w-6" aria-hidden="true" />
-          </span>
-          <h2 className="mt-6 font-display text-4xl font-light tracking-[-0.03em] text-ink sm:text-6xl">
-            Delegate the work.
-            <br />
-            <span className="font-normal">Keep the throne.</span>
+      {/* ── (05) FAQ ── */}
+      <section id="faq" className="scroll-mt-4 border-t border-edge">
+        <SectionRule num="05" label="Questions" />
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-12">
+          <h2 className="font-display text-4xl font-light tracking-[-0.03em] sm:text-6xl lg:col-span-5">
+            Before you sign
           </h2>
-          <p className="mx-auto mt-4 max-w-lg text-base text-muted">
-            Try the full flow on Base Sepolia with simulated fallback — no keys, no testnet funds,
-            nothing at risk.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/mandate"
-              className="inline-flex h-12 items-center gap-2 rounded-full bg-ink px-8 text-sm font-semibold text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Give your first mandate
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex h-12 items-center gap-2 rounded-full border border-edge bg-surface px-7 text-sm font-semibold text-ink transition-colors hover:bg-panel"
-            >
-              Launch dashboard
-            </Link>
+          <div className="divide-y divide-edge border-y border-edge lg:col-span-7">
+            {FAQ.map((item) => (
+              <details key={item.q} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-medium [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge transition-[transform,background-color] group-open:rotate-45 group-open:bg-lime">
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </summary>
+                <p className="mt-3 max-w-xl pr-12 text-sm leading-relaxed text-muted">{item.a}</p>
+              </details>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── (06) CTA ── */}
+      <section className="border-t border-edge px-4 py-6 sm:px-6">
+        <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 overflow-hidden rounded-[2rem] bg-lime p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-xs tracking-[0.2em] uppercase">(06) Get started</p>
+            <h2 className="mt-4 max-w-2xl font-display text-5xl leading-[1.02] font-light tracking-[-0.04em] sm:text-7xl">
+              Delegate the work. Keep the throne.
+            </h2>
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-ink/70">
+              Runs end to end on Base Sepolia — or in demo mode with nothing at risk.
+            </p>
+          </div>
+          <Link
+            href={CREATE_HREF}
+            aria-label="Give your first mandate"
+            className="group flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white transition-transform hover:scale-105 active:scale-95 sm:h-36 sm:w-36"
+          >
+            <ArrowUpRight className="h-10 w-10 transition-transform group-hover:rotate-45" aria-hidden="true" />
+          </Link>
         </div>
       </section>
 
       <SiteFooter />
+    </div>
+  )
+}
+
+function SectionRule({ num, label }: { num: string; label: string }) {
+  return (
+    <div className="mx-auto flex w-full max-w-7xl items-center justify-between border-b border-edge px-4 py-3 font-mono text-xs text-muted sm:px-6">
+      <span>({num})</span>
+      <span className="tracking-wider uppercase">{label}</span>
+      <span>©2026</span>
     </div>
   )
 }

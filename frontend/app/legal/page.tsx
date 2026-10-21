@@ -45,7 +45,7 @@ export default function LegalPage() {
             <Brandmark />
           </Link>
           <Link
-            href="/mandate"
+            href="/dashboard?new=1"
             className="rounded-full border border-edge bg-surface px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-panel focus-visible:outline-2 focus-visible:outline-ink"
           >
             New mandate

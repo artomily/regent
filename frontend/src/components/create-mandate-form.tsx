@@ -24,6 +24,8 @@ interface CreateMandateFormProps {
     expiry: string
   }) => Promise<Mandate>
   onAuthorize: (id: string) => Promise<void>
+  /** Called from the success step; without it the step links back to the dashboard. */
+  onDone?: (mandate: Mandate) => void
 }
 
 type Step = "define" | "review" | "authorize" | "done"
@@ -42,6 +44,7 @@ export function CreateMandateForm({
   onRefreshBalance,
   onCreate,
   onAuthorize,
+  onDone,
 }: CreateMandateFormProps) {
   const [step, setStep] = useState<Step>("define")
   const [mandate, setMandate] = useState<Mandate | null>(null)
@@ -156,15 +159,24 @@ export function CreateMandateForm({
         <CheckCircle2 className="mx-auto h-10 w-10 text-positive" aria-hidden="true" />
         <h3 className="mt-4 font-display text-2xl font-light tracking-tight text-ink">Regent is authorized</h3>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted">
-          The mandate is sealed. Activate the agent from the dashboard and watch it work within your
+          The mandate is sealed. Activate the agent from its detail page and watch it work within your
           boundaries.
         </p>
-        <Link
-          href="/dashboard"
-          className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink shadow-xs"
-        >
-          Open the dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        {onDone && mandate ? (
+          <button
+            onClick={() => onDone(mandate)}
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-pure-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink shadow-xs"
+          >
+            View mandate details <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : (
+          <Link
+            href="/dashboard"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-pure-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink shadow-xs"
+          >
+            Open the dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        )}
       </div>
     )
   }

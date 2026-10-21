@@ -1,6 +1,7 @@
 "use client"
 
-import { Ban, Clock, FileSignature, Gauge } from "lucide-react"
+import { ArrowUpRight, Ban, Clock, FileSignature, Gauge } from "lucide-react"
+import Link from "next/link"
 import { StatusChip } from "./status-chip"
 import { formatAmount, formatExpiry, formatPercent, formatTimeAgo, truncateMiddle } from "@/lib/format"
 import type { Mandate } from "@/lib/types"
@@ -8,9 +9,11 @@ import type { Mandate } from "@/lib/types"
 interface MandateCardProps {
   mandate: Mandate
   onRevoke?: (id: string) => void
+  /** Pages that already show the goal as their title render the card as a plain clause sheet. */
+  showGoal?: boolean
 }
 
-export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
+export function MandateCard({ mandate, onRevoke, showGoal = true }: MandateCardProps) {
   const spentPct = Math.min(100, (mandate.spent / mandate.budget) * 100)
   const revocable = ["authorized", "active"].includes(mandate.status) && onRevoke
 
@@ -22,7 +25,9 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] font-medium tracking-[0.18em] text-muted uppercase">Mandate</p>
-          <h2 className="mt-1 font-display text-2xl font-light tracking-tight text-ink">{mandate.goal}</h2>
+          <h2 className="mt-1 font-display text-2xl font-light tracking-tight text-ink">
+            {showGoal ? mandate.goal : "Signed boundaries"}
+          </h2>
           <p className="mt-1 text-xs text-muted">Issued {formatTimeAgo(mandate.createdAt)}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -123,33 +128,33 @@ export function MandateCard({ mandate, onRevoke }: MandateCardProps) {
   )
 }
 
-export function MandateRow({
-  mandate,
-  onView,
-}: {
-  mandate: Mandate
-  onView?: (id: string) => void
-}) {
+export function MandateRow({ mandate }: { mandate: Mandate }) {
+  const spentPct = Math.min(100, (mandate.spent / mandate.budget) * 100)
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-edge bg-surface px-4 py-3 shadow-2xs">
-      <div className="min-w-0">
+    <Link
+      href={`/dashboard/mandates/${mandate.id}`}
+      className="group flex items-center justify-between gap-4 rounded-2xl border border-edge bg-surface px-4 py-3.5 shadow-2xs transition-colors hover:bg-panel-sage-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+    >
+      <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">{mandate.goal}</p>
         <p className="tnum mt-0.5 font-mono text-[11px] text-muted">
           {formatAmount(mandate.budget)} {mandate.sourceAsset} → {mandate.targetAsset} ·{" "}
           {formatTimeAgo(mandate.createdAt)}
         </p>
       </div>
+      <div className="hidden w-32 shrink-0 sm:block" aria-hidden="true">
+        <div className="h-1.5 overflow-hidden rounded-full bg-panel">
+          <div className="h-full rounded-full bg-lime" style={{ width: `${spentPct}%` }} />
+        </div>
+        <p className="tnum mt-1 text-right font-mono text-[10px] text-muted">{formatPercent(spentPct)} used</p>
+      </div>
       <div className="flex shrink-0 items-center gap-2">
         <StatusChip status={mandate.status} />
-        {onView && (
-          <button
-            onClick={() => onView(mandate.id)}
-            className="rounded-full border border-edge bg-panel px-3 py-1 text-xs font-medium text-ink transition-colors hover:bg-edge focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-          >
-            View
-          </button>
-        )}
+        <ArrowUpRight
+          className="h-4 w-4 text-muted transition-colors group-hover:text-ink"
+          aria-hidden="true"
+        />
       </div>
-    </div>
+    </Link>
   )
 }

@@ -82,9 +82,9 @@ describe("Dashboard Components (Modeled on SaaS Reference)", () => {
     expect(html).toContain("Statistics")
     expect(html).toContain("Budget spent (USDC)")
     expect(html).toContain("Executions")
-    // Empty state message and link to /mandate
+    // Empty state message and link that opens the create-mandate dialog
     expect(html).toContain("No executions yet - authorize a mandate and run the agent")
-    expect(html).toContain('href="/mandate"')
+    expect(html).toContain('href="/dashboard?new=1"')
     // No filled bar capsules (no overflow-hidden bg-ink bars)
     expect(html).not.toContain("overflow-hidden bg-ink")
     // Only dashed empty capsules

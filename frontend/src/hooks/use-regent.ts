@@ -56,13 +56,14 @@ function readJson<T>(key: string): T | null {
 const isServer = () => typeof window === "undefined"
 const subscribeNoop = () => () => {}
 
-function initialActive(): Mandate | null {
+function initialActive(focusMandateId?: string): Mandate | null {
   if (isServer()) return null
-  const activeId = localStorage.getItem(ACTIVE_KEY)
+  // A detail page pins its own mandate; the dashboard falls back to the last one viewed.
+  const activeId = focusMandateId ?? localStorage.getItem(ACTIVE_KEY)
   return activeId ? getMandate(activeId) : null
 }
 
-export function useRegent() {
+export function useRegent({ focusMandateId }: { focusMandateId?: string } = {}) {
   const hydrated = useSyncExternalStore(
     subscribeNoop,
     () => true,
@@ -77,19 +78,19 @@ export function useRegent() {
   const [smartAccountUSDCBalance, setSmartAccountUSDCBalance] = useState<number | null>(null)
 
   const [mandates, setMandates] = useState<Mandate[]>(() => (isServer() ? [] : getAllMandates()))
-  const [activeMandate, setActiveMandate] = useState<Mandate | null>(initialActive)
+  const [activeMandate, setActiveMandate] = useState<Mandate | null>(() => initialActive(focusMandateId))
   const [activityLog, setActivityLog] = useState<ActivityEvent[]>(() => {
-    const active = initialActive()
+    const active = initialActive(focusMandateId)
     return active ? getActivityForMandate(active.id) : []
   })
   const [decision, setDecision] = useState<AgentDecision | null>(() => {
-    const active = initialActive()
+    const active = initialActive(focusMandateId)
     if (!active) return null
     const saved = readJson<{ mandateId: string; decision: AgentDecision }>(DECISION_KEY)
     return saved?.mandateId === active.id ? saved.decision : null
   })
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(() => {
-    const active = initialActive()
+    const active = initialActive(focusMandateId)
     if (!active) return null
     const saved = readJson<{ mandateId: string; result: ExecutionResult }>(RESULT_KEY)
     return saved?.mandateId === active.id ? saved.result : null

@@ -9,6 +9,7 @@ import type { ActivityEvent, Mandate } from "@/lib/types"
 interface StatisticsPanelProps {
   activityLog: ActivityEvent[]
   mandates: Mandate[]
+  onCreateMandate?: () => void
 }
 
 interface DayData {
@@ -40,7 +41,7 @@ function isExecutionEvent(ev: ActivityEvent): boolean {
   return ev.step === "confirming_transaction" || ev.step === "executing_swap"
 }
 
-export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps) {
+export function StatisticsPanel({ activityLog, mandates, onCreateMandate }: StatisticsPanelProps) {
   const [period, setPeriod] = useState<"7d" | "30d" | "all">("7d")
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null)
 
@@ -239,13 +240,23 @@ export function StatisticsPanel({ activityLog, mandates }: StatisticsPanelProps)
                 <p className="text-xs font-medium text-ink">
                   No executions yet - authorize a mandate and run the agent
                 </p>
-                <Link
-                  href="/mandate"
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-ink underline underline-offset-4 hover:opacity-80"
-                >
-                  <span>Create a mandate</span>
-                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                </Link>
+                {onCreateMandate ? (
+                  <button
+                    onClick={onCreateMandate}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-ink underline underline-offset-4 hover:opacity-80"
+                  >
+                    <span>Create a mandate</span>
+                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <Link
+                    href="/dashboard?new=1"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-ink underline underline-offset-4 hover:opacity-80"
+                  >
+                    <span>Create a mandate</span>
+                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                )}
               </div>
             </div>
           )}

@@ -1,13 +1,13 @@
 "use client"
 
 import { Plus, Settings, Shield, Sparkles } from "lucide-react"
-import Link from "next/link"
 
 interface DashboardHeaderProps {
   onOpenSettings?: () => void
+  onCreateMandate?: () => void
 }
 
-export function DashboardHeader({ onOpenSettings }: DashboardHeaderProps) {
+export function DashboardHeader({ onOpenSettings, onCreateMandate }: DashboardHeaderProps) {
   return (
     <header className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
       {/* Editorial headline with inline pill icons */}
@@ -41,13 +41,13 @@ export function DashboardHeader({ onOpenSettings }: DashboardHeaderProps) {
           <Settings className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
 
-        <Link
-          href="/mandate"
+        <button
+          onClick={onCreateMandate}
           className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-xs font-semibold tracking-wide text-pure-white shadow-xs transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           <span>Create a new mandate</span>
-        </Link>
+        </button>
       </div>
     </header>
   )

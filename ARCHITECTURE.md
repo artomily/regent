@@ -31,11 +31,11 @@ Regent is an agent-operated wallet: the user signs a **mandate** (goal + budget 
 ## Workspaces
 
 ### `frontend/` — control surface
-Next.js 16 (App Router, Tailwind v4). Three routes plus a server-side proxy:
+Next.js 16 (App Router, Tailwind v4). Three pages plus a server-side proxy:
 
 - `/` — landing page with a dependency-free canvas 3D hero ([hero-3d.tsx](frontend/src/components/hero-3d.tsx))
-- `/dashboard` — active mandate, live agent activity feed, route comparison, execution result, history
-- `/mandate` — three-step flow: define → review → authorize (EIP-712 signature when a wallet is connected)
+- `/dashboard` — overview metrics, all mandates, activity and agent settings; "Create a mandate" opens a dialog with the three-step flow define → review → authorize (dual ERC-7710 delegations when a wallet is connected). `/dashboard?new=1` opens it directly and the old `/mandate` URL redirects there
+- `/dashboard/mandates/[id]` — mandate detail: clauses, revoke, Activate/Execute, Venice route comparison, execution result and that mandate's activity
 - `/api/agent/{health,evaluate,execute}` — proxy to the ai-agent with an in-process simulator fallback ([simulator.ts](frontend/src/lib/simulator.ts)), so the demo never hard-fails
 
 State: mandates and the activity audit log persist in `localStorage` ([mandate-engine.ts](frontend/src/lib/mandate-engine.ts), [activity.ts](frontend/src/lib/activity.ts)); orchestration lives in [use-regent.ts](frontend/src/hooks/use-regent.ts).
