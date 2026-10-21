@@ -115,7 +115,7 @@ export function RightTiles({
         <div className="mt-4">
           <h3 className="text-sm font-semibold tracking-tight text-ink">Venice AI status</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            Autonomous decision engine using private Zero-Knowledge compute to compare DEX pools.
+            Private inference via Venice AI — prompts aren&apos;t retained.
           </p>
         </div>
       </div>
