@@ -167,33 +167,47 @@ npm run build            # production frontend build
 
 ---
 
-## Smart Accounts Kit — Delegation
+## Smart Accounts Kit — Dual ERC-7710 Delegations
 
-Regent's mandate authorization is a bounded delegation: the owner signs the mandate clauses and the agent is granted narrow authority to act within them. Every boundary is enforced by `RegentMandate.sol`, which acts as the caveat enforcer in the ERC-7710 flow.
+Regent implements standard MetaMask ERC-7710 delegations split into two distinct, narrowly scoped delegations signed by the user's Smart Account:
+1. **`approveDelegation`**: Approves USDC spending exclusively for Uniswap `SwapRouter02` (`0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4`).
+2. **`swapDelegation`**: Executes `exactInputSingle` on SwapRouter02 with calldata offsets locked to tokenIn = USDC, tokenOut = WETH, and recipient = the user's Smart Account, with `ERC20BalanceChangeEnforcer` ensuring spend does not breach budget.
 
-### Creating a delegation
+Both delegations are created with unique salts so they can be independently validated and revoked.
 
-| What | File |
-|---|---|
-| EIP-712 typed-data signing — the owner signs mandate clauses to grant the agent authority | [`frontend/src/lib/wallet.ts` → `signMandateAuthorization`](frontend/src/lib/wallet.ts#L38) |
-| Delegation orchestration — connects wallet, signs, stores `delegationHash`, registers on-chain | [`frontend/src/hooks/use-regent.ts` → `authorize`](frontend/src/hooks/use-regent.ts#L136) |
-| On-chain mandate registration — `createMandate(agent, budget, slippage, expiry)` via viem | [`frontend/src/lib/contract.ts` → `registerMandateOnChain`](frontend/src/lib/contract.ts#L29) |
-| Delegation hash stored against the mandate record | [`frontend/src/lib/mandate-engine.ts` → `updateMandateDelegation`](frontend/src/lib/mandate-engine.ts#L61) |
-| `RegentMandate.createMandate` — on-chain registry entry and caveat configuration | [`contract/src/RegentMandate.sol` → `createMandate`](contract/src/RegentMandate.sol#L75) |
-
-### Redeeming a delegation
+### Creating Delegations
 
 | What | File |
 |---|---|
-| Agent submits execution through 1Shot relayer (`relayer_send7710Transaction`) carrying the `delegationHash` | [`ai-agent/src/executor.ts` → `executeRoute`](ai-agent/src/executor.ts#L27) |
-| `RegentMandate.recordExecution` — enforces all clauses and reverts if any boundary is exceeded | [`contract/src/RegentMandate.sol` → `recordExecution`](contract/src/RegentMandate.sol#L117) |
+| Dual ERC-7710 delegation construction with caveat enforcers | [`frontend/src/lib/delegation.ts` → `buildMandateDelegations`](frontend/src/lib/delegation.ts) |
+| Delegation signing via MetaMask Smart Account (`signDelegations`) | [`frontend/src/lib/delegation.ts` → `signMandateDelegations`](frontend/src/lib/delegation.ts) |
+| Delegation orchestration — connects wallet, signs dual delegations, registers on-chain | [`frontend/src/hooks/use-regent.ts` → `authorize`](frontend/src/hooks/use-regent.ts) |
+| On-chain mandate registration — `createMandate(agent, budget, slippage, expiry)` via viem | [`frontend/src/lib/contract.ts` → `registerMandateOnChain`](frontend/src/lib/contract.ts) |
+| `RegentMandate.createMandate` — on-chain registry entry and boundary configuration | [`contract/src/RegentMandate.sol` → `createMandate`](contract/src/RegentMandate.sol) |
 
-### Revoking authority
+### Redeeming Delegations
 
-The owner can call `revokeMandate` at any time — the agent's authority ends immediately on-chain:
+| What | File |
+|---|---|
+| Agent bundles both delegations in `SingleDefault` mode into `redeemDelegations` | [`ai-agent/src/executor.ts` → `buildExecutionCalldata`](ai-agent/src/executor.ts) |
+| `RegentMandate.recordExecution` — runs first, enforcing all clauses and reverting on breach | [`contract/src/RegentMandate.sol` → `recordExecution`](contract/src/RegentMandate.sol) |
+| Direct EOA execution or 1Shot relayer submission (`relayer_send7710Transaction`) | [`ai-agent/src/executor.ts` → `executeRoute`](ai-agent/src/executor.ts) |
 
-- UI revoke: [`frontend/src/hooks/use-regent.ts` → `revoke`](frontend/src/hooks/use-regent.ts#L256)
-- Contract enforcement: [`contract/src/RegentMandate.sol` → `revokeMandate`](contract/src/RegentMandate.sol#L108)
+### Revoking Authority
+
+The owner can revoke at any time. Revocation performs two on-chain actions:
+1. Disables both delegations in MetaMask `DelegationManager` via a bundled Smart Account UserOp.
+2. Calls `revokeMandate` on `RegentMandate.sol`, permanently revoking authority on-chain.
+
+- UI revoke: [`frontend/src/hooks/use-regent.ts` → `revoke`](frontend/src/hooks/use-regent.ts)
+- Contract enforcement: [`contract/src/RegentMandate.sol` → `revokeMandate`](contract/src/RegentMandate.sol)
+- Delegation disabling UserOp: [`frontend/src/lib/contract.ts` → `disableDelegationOnChain`](frontend/src/lib/contract.ts)
+
+---
+
+## Base Sepolia Runbook
+
+For a comprehensive guide on deploying the contracts, configuring live credentials, and testing the live delegation flow on Base Sepolia, see **[docs/RUNBOOK_BASE_SEPOLIA.md](docs/RUNBOOK_BASE_SEPOLIA.md)**.
 
 ---
 

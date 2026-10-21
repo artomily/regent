@@ -50,7 +50,54 @@ Zero-dependency Node 24 service (native TS type stripping). Pipeline per evaluat
 ### `contract/` — law
 `RegentMandate.sol`: on-chain mandate registry and spending guard. The owner registers boundaries and names the agent address; only that agent can `recordExecution`, and every call reverts unless **all** clauses hold (cumulative budget, slippage bps, expiry, not revoked). The owner can `revokeMandate` at any time — authority dies instantly. 11 Foundry tests cover the guard.
 
-Production path: the swap itself routes through an ERC-7710 delegation from the user's MetaMask Smart Account with gas abstraction via EIP-7702 (1Shot); `RegentMandate` is the caveat enforcer and audit log.
+## Dual ERC-7710 Delegation Architecture
+
+Regent implements standard MetaMask ERC-7710 delegations split into two distinct, narrowly scoped delegations signed by the user's Smart Account:
+
+1. **`approveDelegation`**:
+   - **Target**: USDC token address (`0x036CbD53842c5426634e7929541eC2318f3dCF7e` on Base Sepolia)
+   - **Selector**: `approve(address,uint256)` (`0x095ea7b3`)
+   - **Caveat Enforcers**:
+     - `AllowedTargetsEnforcer`: Only USDC
+     - `AllowedMethodsEnforcer`: Only `approve`
+     - `AllowedCalldataEnforcer`: `startIndex: 4` locked to Uniswap `SwapRouter02` (`0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4`)
+     - `LimitedCallsEnforcer`: Strictly capped execution allowance
+   - **Salt**: Deterministic unique salt (`hash(mandateId, "approve")`)
+
+2. **`swapDelegation`**:
+   - **Target**: Uniswap `SwapRouter02` (`0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4`)
+   - **Selector**: `exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))` (`0x04e45aaf`)
+   - **Caveat Enforcers**:
+     - `AllowedTargetsEnforcer`: Only SwapRouter02
+     - `AllowedMethodsEnforcer`: Only `exactInputSingle`
+     - `AllowedCalldataEnforcer` (3 terms):
+       - Offset 4: `tokenIn` locked to USDC
+       - Offset 36: `tokenOut` locked to WETH
+       - Offset 100: `recipient` locked to user's Smart Account
+     - `ERC20BalanceChangeEnforcer`: USDC spend cannot exceed mandate budget
+     - `LimitedCallsEnforcer`: Strictly capped execution allowance
+   - **Salt**: Deterministic unique salt (`hash(mandateId, "swap")`)
+
+### Bundled Redemption & Execution Sequencing
+
+When executing a swap route, the agent or relayer bundles both delegations into a single call to MetaMask `DelegationManager.redeemDelegations`:
+- `delegations`: `[[approveDelegation], [swapDelegation]]`
+- `modes`: `[ExecutionMode.SingleDefault, ExecutionMode.SingleDefault]`
+- `executions`: `[[approveExecution], [swapExecution]]`
+
+**Execution Order**:
+1. `RegentMandate.recordExecution(onChainId, spendAmount, amountOutMinimum, slippageBps, routeRef)` is called first. If the spend exceeds remaining budget, breaches slippage, or the mandate has expired/revoked, the transaction reverts on-chain immediately.
+2. `DelegationManager.redeemDelegations` is executed next. Even if an attacker attempted to bypass the agent service, the caveats on the Smart Account delegations reject any unauthorized spender, token, recipient, or balance change.
+
+## API Authentication
+
+Mutating `/api/mandates` endpoints (POST and PATCH) enforce cryptographic authentication:
+- Every mutation request includes an EIP-191 `personal_sign` signature over canonical JSON:
+  `{ action: "create" | "update", mandateId, owner, timestamp }`
+- The server verifies:
+  1. `timestamp` is within a 5-minute replay window (`|now - timestamp| <= 300_000ms`).
+  2. Recovered address from `recoverMessageAddress` matches `mandate.owner` (401 on missing/invalid signature or timestamp, 403 on signer mismatch).
+  3. When database persistence is configured, existing mandate ownership is verified before updates.
 
 ## Mandate lifecycle
 
@@ -62,25 +109,33 @@ pending ──authorize──► authorized ──activate──► active ─�
 
 Every transition is appended to the activity log with a timestamp and source tag (`venice` / `heuristic` / `simulated`, `relayer` / `simulated`) — the audit trail is part of the UX.
 
-## Trust model — boundaries enforced three times
+## Trust Model & Residual Trust
 
 | Layer | Where | What it stops |
 |---|---|---|
-| Interface | `use-regent.ts` guards before execution | obvious breaches, instant feedback |
-| Agent service | `venice.ts` re-check + `executor.ts` final check | hallucinated or malicious payloads to `/execute` |
-| Contract | `RegentMandate.recordExecution` reverts | everything else — the agent's authority can never exceed the signature |
+| Interface | `use-regent.ts` guards before execution | Obvious breaches, client-side input validation |
+| API Auth | `/api/mandates` EIP-191 verification | Unauthorized creation, tampering, or revocation of mandates |
+| Agent service | `venice.ts` re-check + `executor.ts` boundary check | Hallucinated routes, bad quotes, out-of-budget payloads |
+| Smart Account Delegation | `DelegationManager` + Caveat Enforcers | Unapproved targets, unexpected swap recipients, excessive token drains |
+| Registry Contract | `RegentMandate.sol` | Cumulative budget breaches, slippage breaches, expired execution |
 
-This redundancy is intentional. A bug or compromise in any one layer cannot move funds beyond the mandate.
+### Residual Trust Analysis
+- **Can the agent steal funds?** No. The `approveDelegation` can only approve Uniswap `SwapRouter02`. The `swapDelegation` requires that recipient is the user's Smart Account (`AllowedCalldataEnforcer` offset 100) and that token decrease is bounded (`ERC20BalanceChangeEnforcer`).
+- **Can the agent execute arbitrary trades?** No. `tokenIn` is constrained to USDC and `tokenOut` to WETH.
+- **Can the agent overspend across multiple transactions?** No. `RegentMandate.sol` tracks cumulative spend across all executions against the mandate.
+- **Can the agent act indefinitely?** No. `LimitedCallsEnforcer` limits call count, and `RegentMandate.expiry` terminates authority on-chain.
 
 ## Modes
 
-| Capability | Demo (default, zero config) | Live |
+| Capability | Demo (default, zero config) | Live Base Sepolia |
 |---|---|---|
-| Route quotes | simulated venues with realistic spreads | DEX router quotes (roadmap) |
-| Decision | deterministic heuristic, same policy | Venice AI (`VENICE_API_KEY`) |
-| Authorization | simulated, or real EIP-712 if a wallet is connected | EIP-712 + on-chain `createMandate` (`NEXT_PUBLIC_MANDATE_CONTRACT`) |
-| Execution | simulated tx hash, clearly labeled | 1Shot relayer (`EXECUTION_MODE=live`) |
-| Agent service down | frontend proxy falls back to in-process simulator | — |
+| Route quotes | Simulated venues with realistic spreads | Live Uniswap V3 quoter + fallback |
+| Decision | Deterministic heuristic | Venice AI (`VENICE_API_KEY`) |
+| Smart Account | Demo simulated account | MetaMask Smart Account (ERC-4337) |
+| Delegation | Simulated deed authorization | Dual ERC-7710 delegations (approve + swap) |
+| Enforcement | Interface boundary checks | `RegentMandate.sol` on-chain guard + caveat enforcers |
+| Execution | Simulated tx hash, labeled in UI | Direct EOA execution or 1Shot relayer |
+| Persistence | LocalStorage fallback | Authenticated Neon Postgres database |
 
 ## Ports
 
