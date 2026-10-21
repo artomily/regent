@@ -50,7 +50,7 @@ The app is fully functional with **no services and no keys** — every layer fal
 | `frontend/.env.local` | `NEXT_PUBLIC_BUNDLER_URL` | ERC-4337 bundler RPC endpoint |
 | `frontend/.env.local` | `DATABASE_URL` | Neon serverless PostgreSQL connection string |
 | `ai-agent/.env` | `VENICE_API_KEY`, `VENICE_MODEL` | live Venice AI decisions |
-| `ai-agent/.env` | `EXECUTION_MODE` | `simulated` or `live` |
+| `ai-agent/.env` | `EXECUTION_MODE` | `simulated` (default), `direct` (agent EOA redeems, pays gas) or `relayer` (1Shot; `live` is an alias) |
 | `ai-agent/.env` | `AGENT_PRIVATE_KEY` | direct EOA agent private key for live execution |
 | `ai-agent/.env` | `MANDATE_CONTRACT` | deployed RegentMandate address on Base Sepolia |
 | `ai-agent/.env` | `ONE_SHOT_RELAYER_URL` | 1Shot relayer API URL |
