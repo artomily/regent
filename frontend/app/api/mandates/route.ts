@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { verifyMandateAuth } from "@/lib/auth"
 import { getSql, isDbConfigured, mapRowToMandate, type DbMandateRow } from "@/lib/db"
 import type { Mandate, MandateStatus } from "@/lib/types"
 
@@ -35,13 +36,36 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     mandate?: Mandate
     ownerAddress?: string
+    owner?: string
+    auth?: { signature?: string; timestamp?: number; action?: "create" | "update" }
+    signature?: string
+    timestamp?: number
   } | null
 
   const mandate = body?.mandate
-  const ownerAddress = body?.ownerAddress || mandate?.delegatorAddress
+  const ownerAddress = body?.ownerAddress || body?.owner || mandate?.delegatorAddress || (mandate as any)?.owner
 
   if (!mandate?.id || !ownerAddress) {
     return NextResponse.json({ error: "Invalid mandate or owner address payload" }, { status: 400 })
+  }
+
+  const signature = body?.auth?.signature || body?.signature || request.headers.get("x-regent-signature")
+  const timestampRaw =
+    body?.auth?.timestamp ??
+    body?.timestamp ??
+    (request.headers.get("x-regent-timestamp") ? Number(request.headers.get("x-regent-timestamp")) : undefined)
+  const action = body?.auth?.action || "create"
+
+  const authResult = await verifyMandateAuth({
+    action,
+    mandateId: mandate.id,
+    expectedOwner: ownerAddress,
+    signature: signature ?? undefined,
+    timestamp: timestampRaw,
+  })
+
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   if (!isDbConfigured()) {
@@ -55,7 +79,8 @@ export async function POST(request: Request) {
   try {
     const sql = getSql()!
     const now = Date.now()
-    const delegationJson = mandate.delegation ? JSON.stringify(mandate.delegation) : null
+    const rawDelegations = mandate.delegations || mandate.delegation
+    const delegationJson = rawDelegations ? JSON.stringify(rawDelegations) : null
 
     await sql`
       INSERT INTO mandates (
@@ -110,12 +135,56 @@ export async function PATCH(request: Request) {
     onChainId?: string
     txHash?: string
     delegation?: unknown
+    delegations?: unknown
     delegationHash?: string
     smartAccountAddress?: string
+    ownerAddress?: string
+    owner?: string
+    auth?: { signature?: string; timestamp?: number }
+    signature?: string
+    timestamp?: number
   } | null
 
   if (!body?.id) {
     return NextResponse.json({ error: "Missing mandate id" }, { status: 400 })
+  }
+
+  let expectedOwner = body?.ownerAddress || body?.owner || request.headers.get("x-regent-owner")
+
+  if (isDbConfigured()) {
+    try {
+      const sql = getSql()!
+      const rows = (await sql`
+        SELECT owner_address FROM mandates WHERE id = ${body.id} LIMIT 1
+      `) as DbMandateRow[]
+      if (rows.length > 0 && rows[0].owner_address) {
+        expectedOwner = rows[0].owner_address
+      }
+    } catch {
+      // If DB query fails, continue with body-supplied owner
+    }
+  }
+
+  if (!expectedOwner) {
+    return NextResponse.json({ error: "Missing owner for authorization" }, { status: 401 })
+  }
+
+  const signature = body?.auth?.signature || body?.signature || request.headers.get("x-regent-signature")
+  const timestampRaw =
+    body?.auth?.timestamp ??
+    body?.timestamp ??
+    (request.headers.get("x-regent-timestamp") ? Number(request.headers.get("x-regent-timestamp")) : undefined)
+
+  const authResult = await verifyMandateAuth({
+    action: "update",
+    mandateId: body.id,
+    expectedOwner,
+    signature: signature ?? undefined,
+    timestamp: timestampRaw,
+  })
+
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   if (!isDbConfigured()) {
@@ -129,7 +198,8 @@ export async function PATCH(request: Request) {
   try {
     const sql = getSql()!
     const now = Date.now()
-    const delegationJson = body.delegation ? JSON.stringify(body.delegation) : null
+    const rawDelegations = body.delegations || body.delegation
+    const delegationJson = rawDelegations ? JSON.stringify(rawDelegations) : null
 
     await sql`
       UPDATE mandates SET

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 import type { Hex } from "viem"
 import { addActivity, getActivityForMandate } from "@/lib/activity"
 import { fetchAgentHealth, requestEvaluation, requestExecution } from "@/lib/agent-client"
+import { signMandateAuth } from "@/lib/auth"
 import {
   disableDelegationOnChain,
   isOnChainEnabled,
@@ -234,11 +235,19 @@ export function useRegent() {
       refresh(mandate.id)
 
       if (walletAddress) {
-        fetch("/api/mandates", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mandate, ownerAddress: walletAddress }),
-        }).catch(() => {})
+        signMandateAuth({
+          action: "create",
+          mandateId: mandate.id,
+          owner: walletAddress,
+        })
+          .then((auth) =>
+            fetch("/api/mandates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mandate, ownerAddress: walletAddress, auth }),
+            }),
+          )
+          .catch(() => {})
       }
 
       return mandate
@@ -309,11 +318,19 @@ export function useRegent() {
 
         // Sync with database API
         if (updated) {
-          fetch("/api/mandates", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mandate: updated, ownerAddress: walletAddress }),
-          }).catch(() => {})
+          signMandateAuth({
+            action: "create",
+            mandateId: updated.id,
+            owner: walletAddress,
+          })
+            .then((auth) =>
+              fetch("/api/mandates", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mandate: updated, ownerAddress: walletAddress, auth }),
+              }),
+            )
+            .catch(() => {})
         }
       } else {
         await wait(900)
@@ -434,16 +451,28 @@ export function useRegent() {
             `Confirmed. Spent ${result.spentAmount} ${mandate.sourceAsset}, received ${result.receivedAmount} ${mandate.targetAsset}.`,
             { transactionHash: result.transactionHash, source: result.source },
           )
-          fetch("/api/mandates", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: mandateId,
-              status: "completed",
-              spent: mandate.spent + result.spentAmount,
-              txHash: result.transactionHash,
-            }),
-          }).catch(() => {})
+          if (walletAddress) {
+            signMandateAuth({
+              action: "update",
+              mandateId,
+              owner: walletAddress,
+            })
+              .then((auth) =>
+                fetch("/api/mandates", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    id: mandateId,
+                    status: "completed",
+                    spent: mandate.spent + result.spentAmount,
+                    txHash: result.transactionHash,
+                    ownerAddress: walletAddress,
+                    auth,
+                  }),
+                }),
+              )
+              .catch(() => {})
+          }
         } else {
           updateMandateStatus(mandateId, "rejected")
           addActivity(mandateId, "confirming_transaction", result.error ?? "Execution failed.")
@@ -490,11 +519,21 @@ export function useRegent() {
           }
         }
 
-        fetch("/api/mandates", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: mandateId, status: "revoked" }),
-        }).catch(() => {})
+        if (walletAddress) {
+          signMandateAuth({
+            action: "update",
+            mandateId,
+            owner: walletAddress,
+          })
+            .then((auth) =>
+              fetch("/api/mandates", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: mandateId, status: "revoked", ownerAddress: walletAddress, auth }),
+              }),
+            )
+            .catch(() => {})
+        }
       }
 
       updateMandateStatus(mandateId, "revoked")
