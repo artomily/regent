@@ -1,19 +1,29 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import type { Delegation } from "@metamask/smart-accounts-kit"
-import { decodeFunctionData, type Address, type Hex } from "viem"
+import { DelegationManager as DelegationManagerAbi } from "@metamask/delegation-abis"
+import { decodeAllowedCalldataTerms, decodeDelegations } from "@metamask/delegation-core"
+import {
+  createDelegation,
+  ExecutionMode,
+  getSmartAccountsEnvironment,
+  ScopeType,
+  type Delegation,
+} from "@metamask/smart-accounts-kit"
+import { decodeFunctionData, pad, type Address, type Hex } from "viem"
+import { BASE_SEPOLIA_CHAIN_ID } from "./config.ts"
 import {
   buildExecutionCalldata,
   executeRoute,
   mapRevertError,
   parseDelegation,
+  parseMandateDelegations,
   REGENT_MANDATE_ABI,
   resolveFeeTier,
   SWAP_ROUTER_ABI,
   UNISWAP_SWAP_ROUTER_02_BASE_SEPOLIA,
 } from "./executor.ts"
 import { BASE_SEPOLIA_USDC, BASE_SEPOLIA_WETH } from "./quotes.ts"
-import type { Mandate, Route } from "./types.ts"
+import type { Mandate, MandateDelegations, Route } from "./types.ts"
 
 const mandate: Mandate = {
   id: "m1",
@@ -26,9 +36,50 @@ const mandate: Mandate = {
   expiry: new Date(Date.now() + 3_600_000).toISOString(),
 }
 
+const env = getSmartAccountsEnvironment(BASE_SEPOLIA_CHAIN_ID)
+const dummySmartAccount = "0x2222222222222222222222222222222222222222" as Address
+const dummyAgent = "0x1111111111111111111111111111111111111111" as Address
+
+const dummyApproveDelegation: Delegation = createDelegation({
+  environment: env,
+  from: dummySmartAccount,
+  to: dummyAgent,
+  scope: {
+    type: ScopeType.FunctionCall,
+    targets: [BASE_SEPOLIA_USDC],
+    selectors: ["0x095ea7b3"],
+    allowedCalldata: [{ startIndex: 4, value: pad(UNISWAP_SWAP_ROUTER_02_BASE_SEPOLIA, { size: 32 }) }],
+  },
+  salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+})
+dummyApproveDelegation.signature = "0x1234"
+
+const dummySwapDelegation: Delegation = createDelegation({
+  environment: env,
+  from: dummySmartAccount,
+  to: dummyAgent,
+  scope: {
+    type: ScopeType.FunctionCall,
+    targets: [UNISWAP_SWAP_ROUTER_02_BASE_SEPOLIA],
+    selectors: ["0x04e45aaf"],
+    allowedCalldata: [
+      { startIndex: 4, value: pad(BASE_SEPOLIA_USDC, { size: 32 }) },
+      { startIndex: 36, value: pad(BASE_SEPOLIA_WETH, { size: 32 }) },
+      { startIndex: 100, value: pad(dummySmartAccount, { size: 32 }) },
+    ],
+  },
+  salt: "0x0000000000000000000000000000000000000000000000000000000000000002",
+})
+dummySwapDelegation.signature = "0x5678"
+
+const dummyDelegations: MandateDelegations<Delegation> = {
+  approve: dummyApproveDelegation,
+  swap: dummySwapDelegation,
+}
+
 const dummyDelegation: Delegation = {
-  delegate: "0x1111111111111111111111111111111111111111",
-  delegator: "0x2222222222222222222222222222222222222222",
+  delegate: dummyAgent,
+  delegator: dummySmartAccount,
   authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
   caveats: [],
   salt: "0x0",
@@ -111,6 +162,30 @@ test("parseDelegation parses valid delegation object or JSON string", () => {
   assert.equal(parsedFromJson.salt, "0x64")
 })
 
+test("parseMandateDelegations parses dual delegations object or serialized JSON", () => {
+  assert.equal(parseMandateDelegations(null), null)
+  assert.equal(parseMandateDelegations("not-json"), null)
+  assert.equal(parseMandateDelegations({}), null)
+  assert.equal(parseMandateDelegations({ approve: dummyApproveDelegation }), null)
+
+  const parsed = parseMandateDelegations(dummyDelegations)
+  assert.ok(parsed)
+  assert.equal(parsed.type, "pair")
+  if (parsed.type === "pair") {
+    assert.equal(parsed.approve.delegate, dummyDelegations.approve.delegate)
+    assert.equal(parsed.swap.delegate, dummyDelegations.swap.delegate)
+  }
+
+  const serialized = JSON.stringify(dummyDelegations)
+  const parsedFromJson = parseMandateDelegations(serialized)
+  assert.ok(parsedFromJson)
+  assert.equal(parsedFromJson.type, "pair")
+  if (parsedFromJson.type === "pair") {
+    assert.equal(parsedFromJson.approve.salt, dummyDelegations.approve.salt)
+    assert.equal(parsedFromJson.swap.salt, dummyDelegations.swap.salt)
+  }
+})
+
 test("resolveFeeTier extracts route.feeTier or scales route.fee, falling back to 3000", () => {
   assert.equal(resolveFeeTier(route({ feeTier: 500 })), 500)
   assert.equal(resolveFeeTier(route({ feeTier: 10000 })), 10000)
@@ -120,6 +195,82 @@ test("resolveFeeTier extracts route.feeTier or scales route.fee, falling back to
   assert.equal(resolveFeeTier(route({ fee: 0.123 })), 3000) // unsupported tier falls back to 3000
 })
 
+test("redeem calldata decodes to 2 delegations, 2 SingleDefault modes, 1 execution each, and satisfies calldata offsets", () => {
+  const mandateWithContract: Mandate = {
+    ...mandate,
+    smartAccountAddress: dummySmartAccount,
+    delegations: dummyDelegations,
+    onChainId: "0x1111111111111111111111111111111111111111111111111111111111111111",
+  }
+  const testRoute = route({ inputAmount: 20, outputAmount: 0.005, slippage: 0.5, feeTier: 500 })
+
+  const bundle = buildExecutionCalldata(mandateWithContract, testRoute, dummyDelegations, {
+    mandateContract: "0x3333333333333333333333333333333333333333",
+  })
+
+  // 1. Decode redeemDelegations
+  const decodedRedeem = decodeFunctionData({
+    abi: DelegationManagerAbi,
+    data: bundle.redeemCalldata,
+  })
+
+  assert.equal(decodedRedeem.functionName, "redeemDelegations")
+  // 2 delegation chains
+  assert.equal(decodedRedeem.args[0].length, 2)
+  const decodedD1 = decodeDelegations(decodedRedeem.args[0][0])
+  const decodedD2 = decodeDelegations(decodedRedeem.args[0][1])
+  assert.equal(decodedD1.length, 1)
+  assert.equal(decodedD2.length, 1)
+  assert.equal(BigInt(decodedD1[0].salt), BigInt(dummyApproveDelegation.salt))
+  assert.equal(BigInt(decodedD2[0].salt), BigInt(dummySwapDelegation.salt))
+
+  // 2 SingleDefault modes
+  assert.equal(decodedRedeem.args[1].length, 2)
+  assert.equal(decodedRedeem.args[1][0], ExecutionMode.SingleDefault)
+  assert.equal(decodedRedeem.args[1][1], ExecutionMode.SingleDefault)
+
+  // 1 execution each
+  assert.equal(decodedRedeem.args[2].length, 2)
+
+  // 2. Verify that approve calldata satisfies the allowedCalldata offsets
+  const approveCaveats = dummyApproveDelegation.caveats.filter(
+    (c) => c.enforcer.toLowerCase() === env.caveatEnforcers.AllowedCalldataEnforcer.toLowerCase(),
+  )
+  assert.equal(approveCaveats.length, 1)
+  for (const caveat of approveCaveats) {
+    const terms = decodeAllowedCalldataTerms(caveat.terms)
+    const valLength = (terms.value.length - 2) / 2
+    const calldataSlice = ("0x" + bundle.approveCalldata.slice(2 + terms.startIndex * 2, 2 + (terms.startIndex + valLength) * 2)) as Hex
+    assert.equal(calldataSlice.toLowerCase(), terms.value.toLowerCase())
+  }
+
+  // 3. Verify that swap calldata satisfies the allowedCalldata offsets
+  const swapCaveats = dummySwapDelegation.caveats.filter(
+    (c) => c.enforcer.toLowerCase() === env.caveatEnforcers.AllowedCalldataEnforcer.toLowerCase(),
+  )
+  assert.equal(swapCaveats.length, 3)
+  for (const caveat of swapCaveats) {
+    const terms = decodeAllowedCalldataTerms(caveat.terms)
+    const valLength = (terms.value.length - 2) / 2
+    const calldataSlice = ("0x" + bundle.swapCalldata.slice(2 + terms.startIndex * 2, 2 + (terms.startIndex + valLength) * 2)) as Hex
+    assert.equal(calldataSlice.toLowerCase(), terms.value.toLowerCase())
+  }
+
+  // Verify decoded feeTier from exactInputSingle
+  const decodedSwap = decodeFunctionData({
+    abi: SWAP_ROUTER_ABI,
+    data: bundle.swapCalldata,
+  })
+  assert.equal(decodedSwap.args[0].fee, 500)
+
+  // Verify recordExecution calldata
+  const decodedRecord = decodeFunctionData({
+    abi: REGENT_MANDATE_ABI,
+    data: bundle.recordCalldata,
+  })
+  assert.equal(decodedRecord.args[0], mandateWithContract.onChainId)
+})
+
 test("buildExecutionCalldata constructs exactly 2 executions in redeem batch and extracts feeTier", () => {
   const mandateWithContract: Mandate = {
     ...mandate,
@@ -127,7 +278,7 @@ test("buildExecutionCalldata constructs exactly 2 executions in redeem batch and
   }
   const testRoute = route({ inputAmount: 20, outputAmount: 0.005, slippage: 0.5, feeTier: 500 })
 
-  const bundle = buildExecutionCalldata(mandateWithContract, testRoute, dummyDelegation, {
+  const bundle = buildExecutionCalldata(mandateWithContract, testRoute, dummyDelegations, {
     mandateContract: "0x3333333333333333333333333333333333333333",
   })
 
@@ -160,10 +311,28 @@ test("buildExecutionCalldata constructs exactly 2 executions in redeem batch and
   assert.equal(bundle.redeemCalldata.startsWith("0xcef6d209"), true)
 })
 
+test("executeRoute refuses live execution when given a legacy single delegation", async () => {
+  const legacyMandate: Mandate = {
+    ...mandate,
+    delegation: dummyDelegation,
+    delegations: undefined,
+    onChainId: "0x1111111111111111111111111111111111111111111111111111111111111111",
+  }
+
+  const result = await executeRoute(legacyMandate, route({ inputAmount: 10 }), {
+    mode: "direct",
+    mandateContract: "0x3333333333333333333333333333333333333333",
+  })
+
+  assert.equal(result.success, false)
+  assert.match(result.error ?? "", /legacy single delegation is unsupported/i)
+  assert.match(result.error ?? "", /two delegations.*required/i)
+})
+
 test("executeRoute refuses live execution when MANDATE_CONTRACT is set but onChainId is missing or invalid", async () => {
   const mandateWithMissingOnChainId: Mandate = {
     ...mandate,
-    delegation: dummyDelegation,
+    delegations: dummyDelegations,
     onChainId: undefined,
   }
 
@@ -177,7 +346,7 @@ test("executeRoute refuses live execution when MANDATE_CONTRACT is set but onCha
 
   const mandateWithInvalidOnChainId: Mandate = {
     ...mandate,
-    delegation: dummyDelegation,
+    delegations: dummyDelegations,
     onChainId: "0x1234", // not 32 bytes
   }
 
@@ -193,7 +362,7 @@ test("executeRoute refuses live execution when MANDATE_CONTRACT is set but onCha
 test("executeRoute in direct mode records execution BEFORE redeeming delegations", async () => {
   const mandateWithContract: Mandate = {
     ...mandate,
-    delegation: dummyDelegation,
+    delegations: dummyDelegations,
     onChainId: "0x2222222222222222222222222222222222222222222222222222222222222222",
   }
 
@@ -252,7 +421,7 @@ test("executeRoute in direct mode records execution BEFORE redeeming delegations
 test("executeRoute in direct mode halts and does not send redeemDelegations if recordExecution reverts", async () => {
   const mandateWithContract: Mandate = {
     ...mandate,
-    delegation: dummyDelegation,
+    delegations: dummyDelegations,
     onChainId: "0x2222222222222222222222222222222222222222222222222222222222222222",
   }
 
@@ -283,7 +452,7 @@ test("executeRoute in direct mode halts and does not send redeemDelegations if r
 test("executeRoute in relayer mode sends recordExecution first then redeemDelegations and returns both hashes", async () => {
   const mandateWithContract: Mandate = {
     ...mandate,
-    delegation: dummyDelegation,
+    delegations: dummyDelegations,
     onChainId: "0x2222222222222222222222222222222222222222222222222222222222222222",
   }
 
