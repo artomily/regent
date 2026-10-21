@@ -27,8 +27,8 @@ import { useRegent } from "@/hooks/use-regent"
 
 function DashboardSkeleton() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="flex w-full max-w-7xl animate-pulse-soft flex-col gap-6 rounded-[32px] border border-edge/60 bg-surface p-6 shadow-sm md:flex-row">
+    <div className="flex min-h-screen w-full p-2 sm:p-3 lg:p-4">
+      <div className="flex w-full animate-pulse-soft flex-col gap-6 rounded-[32px] border border-edge/60 bg-surface p-6 shadow-sm md:flex-row">
         <div className="hidden h-140 w-16 shrink-0 rounded-3xl bg-panel md:block" />
         <div className="flex-1 space-y-6">
           <div className="h-16 w-3/4 rounded-2xl bg-panel" />
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen w-full bg-canvas text-ink antialiased">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col p-3 sm:p-6 lg:p-8">
+      <div className="flex min-h-screen w-full flex-col p-2 sm:p-3 lg:p-4">
         {/* App Shell Container modeled on the SaaS reference */}
         <div className="relative flex flex-1 flex-col overflow-hidden rounded-[28px] border border-edge/60 bg-surface/90 p-4 shadow-sm backdrop-blur-md md:flex-row md:p-6 lg:rounded-[36px] lg:p-8">
           {/* Left Vertical Icon Rail (Bottom Bar on Mobile) */}
