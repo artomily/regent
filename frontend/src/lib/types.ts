@@ -9,6 +9,11 @@ export type MandateStatus =
   | "rejected"
   | "revoked"
 
+export interface MandateDelegations<T = unknown> {
+  approve: T
+  swap: T
+}
+
 export interface Mandate {
   id: string
   goal: string
@@ -25,6 +30,7 @@ export interface Mandate {
   smartAccountAddress?: Hex
   onChainId?: Hex
   delegation?: unknown
+  delegations?: MandateDelegations | unknown
   txHash?: Hex
 }
 
