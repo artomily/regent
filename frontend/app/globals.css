@@ -33,6 +33,14 @@
   --color-hero-glow-sun: rgba(253, 243, 164, 0.58);
   --color-hero-glow-amber: rgba(226, 184, 77, 0.45);
 
+  /* Dashboard app shell tokens (modeled on SaaS reference) */
+  --color-panel-sage: #EFF0EA;
+  --color-panel-sage-light: #F7F8F4;
+  --color-panel-sage-dark: #E2E4DC;
+  --color-rail-ink: #121316;
+  --color-lime-card: #EEF89E;
+  --color-lime-card-faint: rgba(238, 248, 158, 0.35);
+
   --font-sans: var(--font-dm-sans), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
   --font-display: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
