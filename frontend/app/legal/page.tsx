@@ -40,7 +40,7 @@ export default function LegalPage() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <header className="border-b border-edge">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link href="/" className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink">
             <Brandmark />
           </Link>

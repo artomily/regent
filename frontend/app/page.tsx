@@ -197,13 +197,15 @@ export default function Landing() {
         </header>
 
         {/* Hero body */}
-        <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pt-14 pb-10 sm:px-6 lg:grid-cols-12 lg:pt-20">
+        <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pt-12 pb-4 sm:px-6 lg:grid-cols-12 lg:pt-20 lg:pb-0">
           <div className="lg:col-span-7">
             <div className="animate-rise inline-flex items-center gap-2 rounded-full border border-pure-white/15 bg-pure-white/5 py-1 pr-3 pl-1 text-xs text-pure-white/80 backdrop-blur-md">
               <span className="rounded-full bg-lime px-2 py-0.5 font-mono text-[10px] font-bold text-ink uppercase">
                 Live
               </span>
-              MetaMask Smart Accounts × Venice AI on Base Sepolia
+              <span>
+                MetaMask Smart Accounts × Venice AI<span className="hidden sm:inline"> on Base Sepolia</span>
+              </span>
             </div>
 
             <h1 className="animate-rise mt-6 font-display text-5xl leading-[1.02] font-light tracking-[-0.04em] [animation-delay:80ms] sm:text-7xl lg:text-[5.5rem]">
@@ -217,10 +219,10 @@ export default function Landing() {
               Never beyond them, and never with your keys.
             </p>
 
-            <div className="animate-rise mt-9 flex flex-wrap items-center gap-3 [animation-delay:240ms]">
+            <div className="animate-rise mt-9 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row sm:items-center">
               <Link
                 href={CREATE_HREF}
-                className="group inline-flex h-13 items-center gap-3 rounded-full bg-pure-white py-1.5 pr-1.5 pl-6 text-sm font-semibold text-ink shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="group inline-flex h-13 items-center justify-between gap-3 rounded-full bg-pure-white py-1.5 pr-1.5 pl-6 text-sm font-semibold text-ink shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 Give your first mandate
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-pure-white transition-transform group-hover:rotate-45">
@@ -229,30 +231,16 @@ export default function Landing() {
               </Link>
               <a
                 href="#how"
-                className="inline-flex h-13 items-center rounded-full border border-pure-white/20 px-6 text-sm font-medium text-pure-white transition-colors hover:bg-pure-white/10"
+                className="inline-flex h-13 items-center justify-center rounded-full border border-pure-white/20 px-6 text-sm font-medium text-pure-white transition-colors hover:bg-pure-white/10"
               >
                 See how it works
               </a>
             </div>
-
-            <dl className="animate-rise mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-pure-white/10 pt-6 [animation-delay:320ms]">
-              {[
-                ["3×", "redundant checks"],
-                ["2", "ERC-7710 delegations"],
-                ["0", "keys handed over"],
-              ].map(([value, label]) => (
-                <div key={label}>
-                  <dt className="sr-only">{label}</dt>
-                  <dd className="tnum font-mono text-2xl text-pure-white">{value}</dd>
-                  <dd className="mt-1 text-xs text-pure-white/60">{label}</dd>
-                </div>
-              ))}
-            </dl>
           </div>
 
           {/* Mandate card over the orbit orb */}
           <div className="relative lg:col-span-5">
-            <div className="pointer-events-none absolute -inset-16 opacity-70" aria-hidden="true">
+            <div className="pointer-events-none absolute -inset-16 hidden opacity-70 sm:block" aria-hidden="true">
               <Hero3D />
             </div>
 
@@ -312,7 +300,7 @@ export default function Landing() {
 
         {/* Oversized wordmark, editorial bleed */}
         <p
-          className="relative z-0 -mb-[0.2em] text-center font-display text-[22vw] leading-none font-light tracking-[-0.06em] text-pure-white/[0.07] select-none"
+          className="relative z-0 mt-6 -mb-[0.18em] text-center font-display text-[22vw] leading-[0.85] font-light tracking-[-0.06em] text-pure-white/[0.07] select-none"
           aria-hidden="true"
         >
           REGENT
@@ -320,7 +308,7 @@ export default function Landing() {
       </section>
 
       {/* ── (01) CLAUSES ── */}
-      <section id="clauses" className="scroll-mt-4 border-t border-edge">
+      <section id="clauses" className="scroll-mt-4">
         <SectionRule num="01" label="The mandate is law" />
         <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
           <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
@@ -355,7 +343,7 @@ export default function Landing() {
       </section>
 
       {/* ── (02) HOW IT WORKS ── */}
-      <section id="how" className="scroll-mt-4 border-t border-edge bg-panel/40">
+      <section id="how" className="scroll-mt-4 bg-panel/40">
         <SectionRule num="02" label="Chain of authority" />
         <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
           <div className="max-w-2xl">
@@ -385,7 +373,7 @@ export default function Landing() {
                   </span>
                   <span className={`font-mono text-xs ${i === 0 ? "text-pure-white/60" : "text-muted"}`}>{s.num}</span>
                 </div>
-                <h3 className="mt-12 text-lg font-medium">{s.title}</h3>
+                <h3 className="mt-8 text-lg font-medium sm:mt-12">{s.title}</h3>
                 <p className={`mt-2 text-sm leading-relaxed ${i === 0 ? "text-pure-white/70" : "text-muted"}`}>{s.body}</p>
               </li>
             ))}
@@ -396,19 +384,21 @@ export default function Landing() {
       {/* ── (03) FACTS ── */}
       <section className="border-t border-edge">
         <SectionRule num="03" label="By design" />
-        <div className="mx-auto grid w-full max-w-7xl grid-cols-2 divide-edge px-4 sm:px-6 lg:grid-cols-4 lg:divide-x">
+        <div className="mx-auto w-full max-w-7xl sm:px-6">
+          <div className="grid grid-cols-2 gap-px bg-edge lg:grid-cols-4">
           {FACTS.map((f) => (
-            <div key={f.label} className="px-2 py-12 sm:px-8 sm:py-16">
-              <p className="tnum font-mono text-5xl font-light tracking-tight sm:text-6xl">{f.value}</p>
+            <div key={f.label} className="bg-canvas px-4 py-10 sm:px-8 sm:py-16">
+              <p className="tnum font-mono text-4xl font-light tracking-tight sm:text-6xl">{f.value}</p>
               <p className="mt-3 text-sm font-semibold">{f.label}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">{f.desc}</p>
             </div>
           ))}
+          </div>
         </div>
       </section>
 
       {/* ── (04) TRUST MODEL ── */}
-      <section id="trust" className="scroll-mt-4 border-t border-edge bg-panel/40">
+      <section id="trust" className="scroll-mt-4 bg-panel/40">
         <SectionRule num="04" label="Defense in depth" />
         <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
           <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
@@ -472,7 +462,7 @@ if (block.timestamp >= m.expiry) revert `}
       </section>
 
       {/* ── (05) FAQ ── */}
-      <section id="faq" className="scroll-mt-4 border-t border-edge">
+      <section id="faq" className="scroll-mt-4">
         <SectionRule num="05" label="Questions" />
         <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-12">
           <h2 className="font-display text-4xl font-light tracking-[-0.03em] sm:text-6xl lg:col-span-5">
@@ -495,8 +485,8 @@ if (block.timestamp >= m.expiry) revert `}
       </section>
 
       {/* ── (06) CTA ── */}
-      <section className="border-t border-edge px-4 py-6 sm:px-6">
-        <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 overflow-hidden rounded-[2rem] bg-lime p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
+      <section className="mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24">
+        <div className="relative flex flex-col gap-10 overflow-hidden rounded-[2rem] bg-lime p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="font-mono text-xs tracking-[0.2em] uppercase">(06) Get started</p>
             <h2 className="mt-4 max-w-2xl font-display text-5xl leading-[1.02] font-light tracking-[-0.04em] sm:text-7xl">
@@ -523,10 +513,12 @@ if (block.timestamp >= m.expiry) revert `}
 
 function SectionRule({ num, label }: { num: string; label: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-7xl items-center justify-between border-b border-edge px-4 py-3 font-mono text-xs text-muted sm:px-6">
-      <span>({num})</span>
-      <span className="tracking-wider uppercase">{label}</span>
-      <span>©2026</span>
+    <div className="border-y border-edge">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 font-mono text-xs text-muted sm:px-6">
+        <span>({num})</span>
+        <span className="tracking-wider uppercase">{label}</span>
+        <span>©2026</span>
+      </div>
     </div>
   )
 }
