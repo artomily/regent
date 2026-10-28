@@ -8,7 +8,6 @@ import { ActivityFeed } from "@/components/activity-feed"
 import { CreateMandateDialog } from "@/components/dashboard/create-mandate-dialog"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell, DashboardSkeleton } from "@/components/dashboard/dashboard-shell"
-import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 import { MetricCards } from "@/components/dashboard/metric-cards"
 import { RightTiles } from "@/components/dashboard/right-tiles"
 import { StatisticsPanel } from "@/components/dashboard/statistics-panel"
@@ -71,15 +70,6 @@ export default function Dashboard() {
   return (
     <DashboardShell walletAddress={walletAddress} activeTab={activeTab} onSelectTab={setActiveTab}>
       <DashboardHeader onOpenSettings={() => setActiveTab("agent")} onCreateMandate={openCreate} />
-
-      <div className="mt-6 mb-7">
-        <DashboardTabs
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          mandatesCount={mandates.length}
-          activityCount={activityLog.length}
-        />
-      </div>
 
       {activeTab === "overview" && (
         <div className="space-y-7">

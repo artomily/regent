@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest"
 import type { ActivityEvent, Mandate } from "@/lib/types"
 import { DashboardHeader } from "./dashboard-header"
 import { DashboardRail } from "./dashboard-rail"
-import { DashboardTabs } from "./dashboard-tabs"
 import { MetricCards } from "./metric-cards"
 import { RightTiles } from "./right-tiles"
 import { StatisticsPanel } from "./statistics-panel"
@@ -39,22 +38,6 @@ describe("Dashboard Components (Modeled on SaaS Reference)", () => {
     expect(html).toContain("and")
     expect(html).toContain("your agent")
     expect(html).toContain("Create a new mandate")
-  })
-
-  test("DashboardTabs renders pill buttons with active indicator", () => {
-    const html = renderToString(
-      <DashboardTabs
-        activeTab="overview"
-        onSelectTab={() => {}}
-        mandatesCount={2}
-        activityCount={5}
-      />,
-    )
-    expect(html).toContain("Overview")
-    expect(html).toContain("Mandates")
-    expect(html).toContain("Activity")
-    expect(html).toContain("Routes")
-    expect(html).toContain("Agent")
   })
 
   test("MetricCards renders real metrics without fake limits or false claims", () => {

@@ -9,7 +9,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onOpenSettings, onCreateMandate }: DashboardHeaderProps) {
   return (
-    <header className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+    <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
       {/* Editorial headline with inline pill icons */}
       <div className="space-y-1">
         <h1 className="font-display text-3xl font-light tracking-tight text-ink sm:text-4xl lg:text-[42px] lg:leading-[1.15]">
